@@ -1,0 +1,24 @@
+A tool for updating stale links on web pages.
+
+Theory:
+
+Web links often get stale, particularly on old blog posts.  This tool will take a web page, find dead links, and find substitutes for them using the Wayback Machine facility on archive.org.
+
+The Wayback Machine (surprisingly) lacks an API, so this relies on screen-scraping, which is likely to break in the future.
+
+Caveat: the archive picked is the latest available, which, given the way websites degenerate before they die, is not necessarily the best substitute.  So you might want to go pick one by hand.
+
+Usage:
+1) Start a Lisp (tested in Clozure)
+2) Load Quicklisp
+3) Load the wayback.lisp file
+4) 
+
+
+Todo:
+- a UI!
+- exclude self URLs
+- capture errors
+- handle "bad" URLs (eg with ?)
+- blogger interface 	
+
