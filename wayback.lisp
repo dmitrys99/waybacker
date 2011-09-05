@@ -1,5 +1,4 @@
-(require :aserve)
-(load "/Users/travers/repos/mtlisp/load.lisp")
+(ql:quickload '(:aserve :mtlisp :cl-ppcre))
 
 #|
 Status: basically working 
@@ -18,7 +17,6 @@ Todo:
 (defun waybacks (url)
   (let* ((dir-url (format nil "http://wayback.archive.org/web/*/~A" url))
 	 (directory (net.aserve.client:do-http-request dir-url :user-agent *user-agent*)))
-    (setq *directory directory)
     (remove-duplicates (match-re-multiple "\"(http://web.archive.org/web/.+?/.+?)\"" directory) :test #'string-equal)))
 
 (defun wayback (url)
@@ -26,18 +24,18 @@ Todo:
 
 ;;; for utilities
 (defun match-re-multiple (re string &key (return :string))
-  (do ((start 0)
+  (do ((finger 0)
        (result nil))
       (())
-    (multiple-value-bind (found? all group)
-	(excl:match-re re string :start start :return :index)
-      (if found?
+    (multiple-value-bind (start end gstarts gends)
+	(ppcre:scan re string :start finger)
+      (if start
 	  (progn
 	    (push (ecase return
-		    (:string (subseq string (car group) (cdr group)))
-		    (:index group))
+		    (:string (subseq string (svref gstarts 0) (svref gends 0)))
+		    (:index (cons (svref gstarts 0) (svref gends 0))))
 		  result)
-	    (setq start (cdr all)))
+	    (setq finger end))
 	  (return (nreverse result))))))
 
 (defun check-url (url &key full?)
@@ -67,3 +65,4 @@ Todo:
 	      (setq wurl (wayback url))
 	      (princ wurl)))))))
 
+za
