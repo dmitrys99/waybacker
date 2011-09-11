@@ -12,7 +12,7 @@ Usage:
 1) Start a Lisp (tested in Clozure)
 2) Load Quicklisp
 3) Load the wayback.lisp file
-4) (process-url "http://xenia.media.mit.edu/~mt") 
+4a) (process-url "http://xenia.media.mit.edu/~mt") 
 
 Output:
 A lot of verbosity.
@@ -24,11 +24,15 @@ The value returned is a list of bad urls and their backups on archive.org:
  ("http://www.ddj.com/documents/s=889/ddj0001l/0001l.htm"
   "http://web.archive.org/web/20070529043833/http://www.ddj.com/documents/s=889/ddj0001l/0001l.htm"))
 
+OR,
+4b) (transform-url "http://xenia.media.mit.edu/~mt") 
+Will output the transformed contents of the page on the console. 
+
 
 Todo:
 - a web UI, duh
 - exclude self URLs
-- capture errors
+- capture and report errors
 - handle "bad" URLs (eg those that contain a ?)
 - blogger interface that actually rewrites the entry,
   and similarly for other services

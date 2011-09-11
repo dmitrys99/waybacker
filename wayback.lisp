@@ -43,7 +43,7 @@
 	 (values nil resp))))))
 	     
 (defun process-url (url &rest keys)
-  (apply #'process-text (net.aserve.client:do-http-request url) keys))
+  (apply #'process-text (net.aserve.client:do-http-request url :user-agent *user-agent*) keys))
 
 (defun url-excluded? (url excludes)
   (some #'(lambda (exclude) (search exclude url)) excludes))
@@ -73,6 +73,11 @@
 				 (mt:collect (list url wurl)))))))))))
       (format t "~%~A URLs total, ~A excluded, ~A good, ~A bad, ~A substitutes" total excluded good bad substitutes))))
 
-				 
+(defun transform-text (text &rest options)
+  (dolist (transform (apply #'process-text text options) text)
+    (setq text (mt:string-replace text (car transform) (cadr transform)))))
 
-
+;;; Given a URL, fix up its contents and print the transformed result on the console.
+(defun transform-url (url &rest options)
+  (princ (apply #'transform-text (net.aserve.client:do-http-request url :user-agent *user-agent*) options))
+  nil)
