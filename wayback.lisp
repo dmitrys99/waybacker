@@ -1,4 +1,5 @@
-(ql:quickload '(:aserve :mtlisp :cl-ppcre))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (ql:quickload '(:aserve :mtlisp :cl-ppcre)))
 
 (defparameter *user-agent* "waybacker")
 
@@ -49,7 +50,7 @@
 
 ;;: Find URLs, check if they are live, if not try and substitute them
 (defun process-text (text &key excludes)
-  (let* ((url-idxs (match-re-multiple "[\\\"\\\'](http://.*?)[\\\"\\\']" text :return :index))
+  (let* ((url-idxs (match-re-multiple "[\\\"\\\'](http://.+?\\..+?)[\\\"\\\']" text :return :index))
 	 (total (length url-idxs))
 	 (excluded 0) (good 0) (bad 0) (substitutes 0))
     (mt:collecting

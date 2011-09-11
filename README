@@ -12,13 +12,24 @@ Usage:
 1) Start a Lisp (tested in Clozure)
 2) Load Quicklisp
 3) Load the wayback.lisp file
-4) 
+4) (process-url "http://xenia.media.mit.edu/~mt") 
+
+Output:
+A lot of verbosity.
+The value returned is a list of bad urls and their backups on archive.org:
+(("http://el.www.media.mit.edu/groups/el/projects/fishtank/"
+  "http://web.archive.org/web/20100618022707/http://el.www.media.mit.edu/groups/el/projects/fishtank/")
+ ("http://mt.www.media.mit.edu/people/mt/papers/chi94/chi94.html"
+  "http://web.archive.org/web/20060901124153/http://mt.www.media.mit.edu/people/mt/papers/chi94/chi94.html")
+ ("http://www.ddj.com/documents/s=889/ddj0001l/0001l.htm"
+  "http://web.archive.org/web/20070529043833/http://www.ddj.com/documents/s=889/ddj0001l/0001l.htm"))
 
 
 Todo:
-- a UI!
+- a web UI, duh
 - exclude self URLs
 - capture errors
-- handle "bad" URLs (eg with ?)
-- blogger interface 	
+- handle "bad" URLs (eg those that contain a ?)
+- blogger interface that actually rewrites the entry,
+  and similarly for other services
 
