@@ -1,5 +1,8 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (ql:quickload '(:aserve :mtlisp :cl-ppcre)))
+  (ql:quickload '(#-ALLEGRO :aserve :mtlisp :cl-ppcre)))
+
+#+ALLEGRO
+(require :aserve)
 
 (defparameter *user-agent* "waybacker")
 
@@ -55,8 +58,7 @@
 	 (excluded 0) (good 0) (bad 0) (substitutes 0))
     (mt:collecting
       (dolist (url-idx url-idxs)
-      (let ((url (subseq text (car url-idx) (cdr url-idx)))
-	    wurl)
+      (let ((url (subseq text (car url-idx) (cdr url-idx))))
 	(if (url-excluded? url excludes)
 	    (incf excluded)
 	    (progn
@@ -68,9 +70,10 @@
 		    (progn
 		      (format t "bad ~A, looking for substitute..." problem)
 		      (incf bad)
-		      (if (setq wurl (wayback url))
-			  (progn (incf substitutes)
-				 (mt:collect (list url wurl)))))))))))
+		      (mt:awhen (wayback url)
+			(incf substitutes)
+			(format t "found ~A" mt:it)
+			(mt:collect (list url mt:it))))))))))
       (format t "~%~A URLs total, ~A excluded, ~A good, ~A bad, ~A substitutes" total excluded good bad substitutes))))
 
 (defun transform-text (text &rest options)
