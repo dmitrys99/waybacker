@@ -52,29 +52,35 @@
   (some #'(lambda (exclude) (search exclude url)) excludes))
 
 ;;: Find URLs, check if they are live, if not try and substitute them
-(defun process-text (text &key excludes)
+(defun process-text (text &key excludes reporter)
   (let* ((url-idxs (match-re-multiple "[\\\"\\\'](http://.+?\\..+?)[\\\"\\\']" text :return :index))
 	 (total (length url-idxs))
-	 (excluded 0) (good 0) (bad 0) (substitutes 0))
-    (mt:collecting
-      (dolist (url-idx url-idxs)
-      (let ((url (subseq text (car url-idx) (cdr url-idx))))
-	(if (url-excluded? url excludes)
-	    (incf excluded)
-	    (progn
-	      (format t "~%Checking ~A..." url)	
-	      (multiple-value-bind (ok? problem)
-		  (check-url url)
-		(if ok?
-		    (progn (princ "OK") (incf good))
+	 (excluded 0) (good 0) (bad 0) (substitutes 0)
+	 (results
+	  (mt:collecting
+	    (dolist (url-idx url-idxs)
+	      (let ((url (subseq text (car url-idx) (cdr url-idx)))
+		    sub)
+		(if (url-excluded? url excludes)
+		    (incf excluded)
 		    (progn
-		      (format t "bad ~A, looking for substitute..." problem)
-		      (incf bad)
-		      (mt:awhen (wayback url)
-			(incf substitutes)
-			(format t "found ~A" mt:it)
-			(mt:collect (list url mt:it))))))))))
-      (format t "~%~A URLs total, ~A excluded, ~A good, ~A bad, ~A substitutes" total excluded good bad substitutes))))
+		      (format t "~%Checking ~A..." url)	
+		      (multiple-value-bind (ok? problem)
+			  (check-url url)
+			(if ok?
+			    (progn (princ "OK") (incf good) (when reporter (funcall reporter url :good)))
+			    (progn
+			      (format t "bad ~A, looking for substitute..." problem)
+			      (incf bad)
+			      (setf sub (wayback url))
+			      (when sub
+				(incf substitutes)
+				(format t "found ~A" sub)
+				(mt:collect (list url sub)))
+			      (when reporter (funcall reporter url :bad problem sub))
+			      ))))))))))
+    (format t "~%~A URLs total, ~A excluded, ~A good, ~A bad, ~A substitutes" total excluded good bad substitutes)
+    results))
 
 (defun transform-text (text &rest options)
   (dolist (transform (apply #'process-text text options) text)
