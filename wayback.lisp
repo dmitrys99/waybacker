@@ -1,8 +1,6 @@
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (ql:quickload '(#-ALLEGRO :aserve :mtlisp :cl-ppcre)))
+(in-package :wb)
 
-#+ALLEGRO
-(require :aserve)
+(setq net.uri:*strict-parse* nil)	;slack!
 
 (defparameter *user-agent* "waybacker")
 
@@ -12,6 +10,7 @@
 	 (directory (net.aserve.client:do-http-request dir-url :user-agent *user-agent*)))
     (remove-duplicates (match-re-multiple "\"(http://web.archive.org/web/.+?/.+?)\"" directory) :test #'string-equal)))
 
+;;; Return the most recent wayback url corresponding to argument
 (defun wayback (url)
   (car (sort (waybacks url) #'string-greaterp)))
 
@@ -45,15 +44,16 @@
 	(t
 	 (values nil resp))))))
 	     
-(defun process-url (url &rest keys)
+(defun process-page (url &rest keys)
   (apply #'process-text (net.aserve.client:do-http-request url :user-agent *user-agent*) keys))
 
 (defun url-excluded? (url excludes)
   (some #'(lambda (exclude) (search exclude url)) excludes))
 
 ;;: Find URLs, check if they are live, if not try and substitute them
+;;; +++ what about not http: urls?
 (defun process-text (text &key excludes reporter)
-  (let* ((url-idxs (match-re-multiple "[\\\"\\\'](http://.+?\\..+?)[\\\"\\\']" text :return :index))
+  (let* ((url-idxs (match-re-multiple "[\\\"\\\'](https?://.+?\\..+?)[\\\"\\\']" text :return :index))
 	 (total (length url-idxs))
 	 (excluded 0) (good 0) (bad 0) (substitutes 0)
 	 (results
@@ -72,7 +72,7 @@
 			    (progn
 			      (format t "bad ~A, looking for substitute..." problem)
 			      (incf bad)
-			      (setf sub (wayback url))
+			      (setf sub (mt:report-and-ignore-errors (wayback url)))
 			      (when sub
 				(incf substitutes)
 				(format t "found ~A" sub)

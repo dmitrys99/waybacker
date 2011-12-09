@@ -12,7 +12,7 @@ Usage:
 1) Start a Lisp (tested in Clozure)
 2) Load Quicklisp
 3) Load the wayback.lisp file
-4a) (process-url "http://xenia.media.mit.edu/~mt") 
+4a) (process-page "http://xenia.media.mit.edu/~mt") 
 
 Output:
 A lot of verbosity.

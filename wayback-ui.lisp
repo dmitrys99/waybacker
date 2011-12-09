@@ -1,4 +1,4 @@
-(in-package :cl-user)
+(in-package :wb)
 
 ;;; Zeroth-order web UI
 
@@ -8,13 +8,6 @@ Todo:
 - the result should indicate transformed URLs in some way
 - maybe iframes, with a log panel and a page panel
 |#
-
-
-(ql:quickload '(#-ALLEGRO :aserve :mtlisp :wuwei))
-
-(use-package :net.aserve)
-(use-package :net.html.generator)
-(use-package :wu)
 
 (publish :path "/wayback-form"
 	 :function 'wayback-form)

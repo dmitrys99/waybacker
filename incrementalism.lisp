@@ -1,3 +1,5 @@
+(in-package :wb)
+
 ;;; Experiments in incremental refresh
 
 (publish :path "/incremental"
@@ -94,7 +96,8 @@
        )))))
 
 
-o;;; Redefines
+
+;;; Redefines
 ;;; An incremental version (no content yet, just the inc display)
 (defun wayback-response (req ent)
   (with-http-response-and-body (req ent)
