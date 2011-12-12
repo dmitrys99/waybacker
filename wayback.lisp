@@ -6,9 +6,20 @@
 
 ;;; Returns list of URLs. Not sure if this works well for things with only very old archives...
 (defun waybacks (url)
-  (let* ((dir-url (format nil "http://wayback.archive.org/web/*/~A" url))
-	 (directory (net.aserve.client:do-http-request dir-url :user-agent *user-agent*)))
-    (remove-duplicates (match-re-multiple "\"(http://web.archive.org/web/.+?/.+?)\"" directory) :test #'string-equal)))
+  (let* ((uri (puri:uri url))
+	 (frag? (puri:uri-fragment uri))
+	 (unfragged (if frag? (progn
+				(setf (puri:uri-fragment uri) nil)
+				(princ-to-string uri))
+			url))
+	 (dir-url (format nil "http://wayback.archive.org/web/*/~A" unfragged))
+	 (directory (drakma:http-request dir-url :user-agent *user-agent*)))
+    (flet ((refrag (url)
+	     (if frag?
+	       (format nil "~A#~A" url frag?)
+	       url)))
+      (mapcar #'refrag
+	      (remove-duplicates (match-re-multiple "\"(http://web.archive.org/web/.+?/.+?)\"" directory) :test #'string-equal)))))
 
 ;;; Return the most recent wayback url corresponding to argument
 (defun wayback (url)
@@ -30,22 +41,28 @@
 	    (setq finger end))
 	  (return (nreverse result))))))
 
+(defun defrag (url)
+  (let ((uri (puri:uri url)))
+    (setf (puri:uri-fragment uri) nil)
+    (princ-to-string uri)))
+
 (defun check-url (url &key full?)
   (mt:report-and-ignore-errors
-    (multiple-value-bind (content resp headers)
-	(net.aserve.client::do-http-request url :user-agent *user-agent* :method :head) ;  soemtimes works, sometimes not
-      (declare (ignore content headers))
-      (case resp
-	(200 t)
-	(405
-	 (if full?
-	     (values nil resp)
-	     (check-url url :full? t)))
-	(t
-	 (values nil resp))))))
+    (let ((url (defrag url)))
+      (multiple-value-bind (content resp headers)
+	  (drakma:http-request url :user-agent *user-agent* :method :head) ;  soemtimes works, sometimes not
+	(declare (ignore content headers))
+	(case resp
+	  (200 t)
+	  (405
+	   (if full?
+	       (values nil resp)
+	       (check-url url :full? t)))
+	  (t
+	   (values nil resp)))))))
 	     
 (defun process-page (url &rest keys)
-  (apply #'process-text (net.aserve.client:do-http-request url :user-agent *user-agent*) keys))
+  (apply #'process-text (drakma:http-request url :user-agent *user-agent*) keys))
 
 (defun url-excluded? (url excludes)
   (some #'(lambda (exclude) (search exclude url)) excludes))
@@ -88,5 +105,5 @@
 
 ;;; Given a URL, fix up its contents and print the transformed result on the console.
 (defun transform-url (url &rest options)
-  (princ (apply #'transform-text (net.aserve.client:do-http-request url :user-agent *user-agent*) options))
+  (princ (apply #'transform-text (drakma:http-request url :user-agent *user-agent*) options))
   nil)

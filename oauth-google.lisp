@@ -9,7 +9,7 @@
 (defparameter *key* "wuwei.name")
 (defparameter *secret* "xoHi0NAM5RW9_C0sK-M5VUuB")
 
-(defparameter *callback-uri* "http://4en5.localtunnel.com/oauth")
+(defparameter *callback-uri* "http://4gru.localtunnel.com/oauth")
 (defparameter *callback-port* 8080
   "Port to listen on for the callback")
 
@@ -77,6 +77,7 @@
 (defun oauth-aserve (req ent)
   (setq *request* req)
   (wu:with-session (req ent)
+    (wu:with-html-error-handling	;+++ doesn't really work here, need to rethingk
     (handler-case
 	(authorize-request-token-from-request
 	 (lambda (rt-key)
@@ -102,12 +103,9 @@
 	      (:ul
 	       (dolist (b blogs)
 		 (html
-		   (:li ((:a :href (process-blog-link b)) (:princ (car b))))))))))))))
+		   (:li ((:a :href (process-blog-link b)) (:princ (car b)))))))))))))))
 
-
-
-
-;;; Doesn't deal with >page of blogs (who has that many)
+;;; Doesn't deal with >page of blogs (who has that many?)
 (defun blog-list-interpreter (lxml)
   (let* ((blog-entries
 	  (lxml::lxml-find-elements-with-tag lxml :|entry|))
@@ -117,8 +115,11 @@
 		  blog-entries))
 	 (blog-ids
 	  (mapcar #'(lambda (e)
-		      ;; +++ have to pull actual blog id out of this with a regexp
-		      (cadr (lxml::lxml-subelement e :|id|) ))
+		      (let ((raw (cadr (lxml::lxml-subelement e :|id|) )))
+			;; tag:blogger.com,1999:user-02356162954308418556.blog-15644559
+			(multiple-value-bind (match strings)
+			    (ppcre:scan-to-strings "blog-(\\d+)" raw)
+			  (svref strings 0))))
 		  blog-entries)	  ))
     (mapcar #'list blog-names blog-ids)))
 
@@ -130,6 +131,7 @@
 
 (defun process-blog (req ent)
   (wu:with-session (req ent)
+    (wu:with-html-error-handling
     (let ((id (net.aserve:request-query-value "id" req)))
       (let* ((url (format nil "http://www.blogger.com/feeds/~A/posts/default" id)) ;supposedly all posts on omni?
 	     (result (access-protected-resource url *access-token*))
@@ -137,12 +139,15 @@
 	     (total (parse-integer (cadr (lxml-subelement xml :|openSearch:totalResults|))))
 	     (per-page (parse-integer (cadr (lxml-subelement xml :|openSearch:itemsPerPage|))))
 	     (logfile "/tmp/waybacker-log.html")) ;+++ temp of course
+	(with-open-file (s logfile :direction :output :if-exists :supersede :if-does-not-exist :create)
+	  (let ((*html-stream* s))
+	    (html (:h1 (:princ (format nil "Report for ~A" (cadr (lxml-subelement xml :|title|))))))))
 	;; we have first page
 	(dolist (entry (lxml-find-elements-with-tag xml :|entry|))
 	  (process-entry entry :logfile logfile))
 	(dotimes (page (ceiling total per-page))
 	  (unless (zerop page)
-	    (process-page id page per-page :logfile logfile)))))))
+	    (process-page id page per-page :logfile logfile))))))))
 
 (defun process-page (id page page-size &key logfile)
   (let* ((url (format nil "http://www.blogger.com/feeds/~A/posts/default?start-index=~A&max-results=~A" id (* page page-size) page-size))
@@ -156,18 +161,22 @@
      (let ((*html-stream* s))
        (html ,@body))))
 
-
 (defun process-entry (entry-xml &key update? logfile)
   (let ((content (cadr (lxml-subelement entry-xml :|content|)))
 	(title (cadr (lxml-subelement entry-xml :|title|)))
+	(url (lxml-attribute (lxml-find-element-with-attribute entry-xml :|link| :|rel| "alternate")
+ 			     :|href|))
 	(good 0)
 	(total 0)
 	(subs 0)
 	(fails 0))
     (with-logging (s logfile)
-      (:princ (format nil "Working on ~A" title))
+      (:princ "Working on ")
+      ((:a :href url)
+       (:princ title))
       :br)
     (process-text content
+		  :excludes '("http://www.blogger.com")
 		  :reporter
 		  #'(lambda (url status &optional problem sub)
 		      (incf total)
@@ -175,26 +184,24 @@
 			(:good (incf good))
 			(:bad
 			 (if sub (incf subs) (incf fails))
-			 (with-open-file (s logfile :direction :output :if-exists :append :if-does-not-exist :create)
-			   (let ((*html-stream* s))
-			     (html (:li
-					  ((:a :href url)
-					   (:princ-safe url))
-					  :br
-					  (:princ-safe problem)
-					  :br
-					  (when sub
-					    (html
-					      ((:a :href sub)
-					       (:princ-safe sub))))))))))))
-    (with-open-file (s logfile :direction :output :if-exists :append :if-does-not-exist :create)
-      (let ((*html-stream* s))
-	(html (:br (:princ (format nil "~A total links, ~A still valid, ~A substitutions, ~A failures"
+			 (with-logging (s logfile)
+			   (:li
+			    ((:a :href url)
+			     (:princ-safe url))
+			    (:princ " ")
+			    (:princ-safe problem)
+			    :br
+			    (when sub
+			      (html
+				((:a :href sub)
+				 (:princ-safe sub))))))))))
+    (with-logging (s logfile)
+       (:br (:princ (format nil "~A total links, ~A still valid, ~A substitutions, ~A failures"
 				   total
 				   good
 				   subs
 				   fails)))
-	      :hr)))))
+	      :hr)))
 
 
 
