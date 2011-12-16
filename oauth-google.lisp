@@ -1,15 +1,15 @@
 (in-package :wb)
 
-(ql:quickload '(:cl-oauth :s-xml))
-(load "~/repos/swframes/lib/lxml.lisp")	; +++ temp loc
-(use-package :cl-oauth)
-(use-package :wuwei)
-(use-package :lxml)
+;(ql:quickload '(:cl-oauth :s-xml))
+
+;(use-package :cl-oauth)
+;(use-package :wuwei)
+;(use-package :lxml)
 
 (defparameter *key* "wuwei.name")
 (defparameter *secret* "xoHi0NAM5RW9_C0sK-M5VUuB")
 
-(defparameter *callback-uri* "http://4gru.localtunnel.com/oauth")
+(defparameter *callback-uri* "http://4x2v.localtunnel.com/oauth")
 (defparameter *callback-port* 8080
   "Port to listen on for the callback")
 
@@ -131,30 +131,34 @@
 
 (defun process-blog (req ent)
   (wu:with-session (req ent)
-    (wu:with-html-error-handling
+    (progn ; wu:with-html-error-handling
     (let ((id (net.aserve:request-query-value "id" req)))
       (let* ((url (format nil "http://www.blogger.com/feeds/~A/posts/default" id)) ;supposedly all posts on omni?
 	     (result (access-protected-resource url *access-token*))
 	     (xml (parse-xml result))
+	     (title (cadr (lxml-subelement xml :|title|)))
 	     (total (parse-integer (cadr (lxml-subelement xml :|openSearch:totalResults|))))
 	     (per-page (parse-integer (cadr (lxml-subelement xml :|openSearch:itemsPerPage|))))
 	     (logfile "/tmp/waybacker-log.html")) ;+++ temp of course
+	(html (:princ (format nil "Working on ~A..." title)))
 	(with-open-file (s logfile :direction :output :if-exists :supersede :if-does-not-exist :create)
 	  (let ((*html-stream* s))
-	    (html (:h1 (:princ (format nil "Report for ~A" (cadr (lxml-subelement xml :|title|))))))))
+	    (html (:h1 (:princ (format nil "Report for ~A" title))))))
 	;; we have first page
 	(dolist (entry (lxml-find-elements-with-tag xml :|entry|))
-	  (process-entry entry :logfile logfile))
+	  (process-entry entry :logfile logfile :update? t)) ;+++ TEMP turn on update by default
 	(dotimes (page (ceiling total per-page))
 	  (unless (zerop page)
-	    (process-page id page per-page :logfile logfile))))))))
+	    (process-page id page per-page :logfile logfile)))
+	(html (:princ "Finished!"))
+	)))))
 
 (defun process-page (id page page-size &key logfile)
   (let* ((url (format nil "http://www.blogger.com/feeds/~A/posts/default?start-index=~A&max-results=~A" id (* page page-size) page-size))
 	 (result (access-protected-resource url *access-token*))
 	 (xml (parse-xml result)))
     (dolist (entry (lxml-find-elements-with-tag xml :|entry|))
-      (process-entry entry :logfile logfile))))
+      (process-entry entry :logfile logfile :update? t)))) ;+++ TEMP turn on update by default
 
 (defmacro with-logging ((s file) &body body)
   `(with-open-file (,s ,file :direction :output :if-exists :append :if-does-not-exist :create)
@@ -162,19 +166,24 @@
        (html ,@body))))
 
 (defun process-entry (entry-xml &key update? logfile)
-  (let ((content (cadr (lxml-subelement entry-xml :|content|)))
+  (let* ((content-elt (lxml-subelement entry-xml :|content|))
+	 (content (cadr content-elt))
 	(title (cadr (lxml-subelement entry-xml :|title|)))
 	(url (lxml-attribute (lxml-find-element-with-attribute entry-xml :|link| :|rel| "alternate")
  			     :|href|))
+	(edit-url (lxml-attribute (lxml-find-element-with-attribute entry-xml :|link| :|rel| "edit")
+				  :|href|))
 	(good 0)
 	(total 0)
 	(subs 0)
-	(fails 0))
+	(fails 0)
+	transforms)
     (with-logging (s logfile)
       (:princ "Working on ")
       ((:a :href url)
        (:princ title))
       :br)
+    (setq transforms
     (process-text content
 		  :excludes '("http://www.blogger.com")
 		  :reporter
@@ -194,14 +203,25 @@
 			    (when sub
 			      (html
 				((:a :href sub)
-				 (:princ-safe sub))))))))))
+				 (:princ-safe sub)))))))))))
     (with-logging (s logfile)
        (:br (:princ (format nil "~A total links, ~A still valid, ~A substitutions, ~A failures"
 				   total
 				   good
 				   subs
 				   fails)))
-	      :hr)))
+	      :hr)
+    (when (and update? transforms)
+      (let ((new-text content))
+	(dolist (transform transforms)
+	  (setq new-text (mt:string-replace new-text (car transform) (cadr transform))))
+	(setf (cadr content-elt) new-text)
+	(access-protected-resource edit-url *access-token*
+				   :request-method :put
+				   :drakma-args `(:content ,(s-xml:print-xml-string entry-xml))
+				   )	
+
+	))))
 
 
 

@@ -37,3 +37,12 @@ Todo:
 - blogger interface that actually rewrites the entry,
   and similarly for other services
 
+
+Blog repair setup:
+load .asd
+(asdf:operate 'asdf:load-op :waybacker)
+-- will start on port 8080
+Use localtunnel to open up the port
+> localtunnel 8080
+edit *callback-uri* to reflect the assigned host
+go to [host]/obtain

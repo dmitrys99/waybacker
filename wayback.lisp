@@ -50,7 +50,7 @@
   (mt:report-and-ignore-errors
     (let ((url (defrag url)))
       (multiple-value-bind (content resp headers)
-	  (drakma:http-request url :user-agent *user-agent* :method :head) ;  soemtimes works, sometimes not
+	  (drakma:http-request url :user-agent *user-agent* :method (if full? :get :head)) ;  soemtimes works, sometimes not
 	(declare (ignore content headers))
 	(case resp
 	  (200 t)
