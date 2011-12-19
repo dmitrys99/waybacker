@@ -9,7 +9,7 @@
 (defparameter *key* "wuwei.name")
 (defparameter *secret* "xoHi0NAM5RW9_C0sK-M5VUuB")
 
-(defparameter *callback-uri* "http://4x2v.localtunnel.com/oauth")
+(defparameter *callback-uri* "http://3qt2.localtunnel.com/oauth")
 (defparameter *callback-port* 8080
   "Port to listen on for the callback")
 
@@ -42,6 +42,7 @@
 (def-session-variable *request-token* nil)
 
 (publish :path "/obtain"
+	 :content-type "text/html"
 	 :function #'(lambda (req ent)
 		       (wu:with-session (req ent) 
 			 (setf *request-token* (get-request-token "http://www.blogger.com/feeds/"))
@@ -55,6 +56,7 @@
 (net.aserve:start :port 8080)
 
 (publish :path "/"
+	 :content-type "text/html"
 	 :function #'(lambda (req ent)
 		       (net.aserve:with-http-response (req ent)
 			 (net.aserve:with-http-body (req ent)
@@ -77,33 +79,33 @@
 (defun oauth-aserve (req ent)
   (setq *request* req)
   (wu:with-session (req ent)
-    (wu:with-html-error-handling	;+++ doesn't really work here, need to rethingk
-    (handler-case
-	(authorize-request-token-from-request
-	 (lambda (rt-key)
-	   (assert *request-token*)
-	   (unless (equal (url-encode rt-key) (token-key *request-token*))
-	     (warn "Keys differ: ~S / ~S~%" (url-encode rt-key) (token-key *request-token*)))
-	   *request-token*))
-      (error (c)
-	(warn "Couldn't verify request token authorization: ~A" c)))
-    (when (request-token-authorized-p *request-token*)
-      (format t "Successfully verified request token with key ~S~%" (token-key *request-token*))
-      (setf *access-token* (get-access-token))
-      ;; test request:
-      (let* ((result (access-protected-resource
-		     "http://www.blogger.com/feeds/default/blogs"
-		     *access-token*))
-	     (blogs
-	      (blog-list-interpreter (parse-xml result))))
-	(net.aserve:with-http-response (req ent)
-	  (net.aserve:with-http-body (req ent)
-	    (html 
-	      (:h2 (:princ "blogs gotten"))
-	      (:ul
-	       (dolist (b blogs)
-		 (html
-		   (:li ((:a :href (process-blog-link b)) (:princ (car b)))))))))))))))
+    (progn ; wu:with-html-error-handling	;+++ doesn't really work here, need to rethingk
+      (handler-case
+	  (authorize-request-token-from-request
+	   (lambda (rt-key)
+	     (assert *request-token*)
+	     (unless (equal (url-encode rt-key) (token-key *request-token*))
+	       (warn "Keys differ: ~S / ~S~%" (url-encode rt-key) (token-key *request-token*)))
+	     *request-token*))
+	(error (c)
+	  (warn "Couldn't verify request token authorization: ~A" c)))
+      (when (request-token-authorized-p *request-token*)
+	(format t "Successfully verified request token with key ~S~%" (token-key *request-token*))
+	(setf *access-token* (get-access-token))
+	;; test request:
+	(let* ((result (access-protected-resource
+			"http://www.blogger.com/feeds/default/blogs"
+			*access-token*))
+	       (blogs
+		(blog-list-interpreter (parse-xml result))))
+	  (net.aserve:with-http-response (req ent)
+	    (net.aserve:with-http-body (req ent)
+	      (html 
+		(:h2 (:princ "blogs gotten"))
+		(:ul
+		 (dolist (b blogs)
+		   (html
+		     (:li ((:a :href (process-blog-link b)) (:princ (car b)))))))))))))))
 
 ;;; Doesn't deal with >page of blogs (who has that many?)
 (defun blog-list-interpreter (lxml)
@@ -139,18 +141,25 @@
 	     (title (cadr (lxml-subelement xml :|title|)))
 	     (total (parse-integer (cadr (lxml-subelement xml :|openSearch:totalResults|))))
 	     (per-page (parse-integer (cadr (lxml-subelement xml :|openSearch:itemsPerPage|))))
-	     (logfile "/tmp/waybacker-log.html")) ;+++ temp of course
+	     (logfile "/tmp/waybacker-log.html")
+	     (start-time (get-universal-time))
+	     ) ;+++ temp of course
 	(html (:princ (format nil "Working on ~A..." title)))
 	(with-open-file (s logfile :direction :output :if-exists :supersede :if-does-not-exist :create)
 	  (let ((*html-stream* s))
-	    (html (:h1 (:princ (format nil "Report for ~A" title))))))
+	    (html
+	      (:head
+	       ((:link :rel "stylesheet" :type "text/css" :href "http://wuwei.name/wupub/wuwei.css")))
+	      (:h1 (:princ (format nil "Report for ~A" title))))))
 	;; we have first page
 	(dolist (entry (lxml-find-elements-with-tag xml :|entry|))
 	  (process-entry entry :logfile logfile :update? t)) ;+++ TEMP turn on update by default
 	(dotimes (page (ceiling total per-page))
 	  (unless (zerop page)
 	    (process-page id page per-page :logfile logfile)))
-	(html (:princ "Finished!"))
+	(html (:princ "Finished!")
+	      :br
+	      (:princ (format nil "Took ~A seconds" (- (get-universal-time) start-time))))
 	)))))
 
 (defun process-page (id page page-size &key logfile)
@@ -165,62 +174,74 @@
      (let ((*html-stream* s))
        (html ,@body))))
 
-(defun process-entry (entry-xml &key update? logfile)
-  (let* ((content-elt (lxml-subelement entry-xml :|content|))
-	 (content (cadr content-elt))
-	(title (cadr (lxml-subelement entry-xml :|title|)))
-	(url (lxml-attribute (lxml-find-element-with-attribute entry-xml :|link| :|rel| "alternate")
- 			     :|href|))
+(defun update-entry (entry-xml new-content)
+  (let ((content-elt (lxml-subelement entry-xml :|content|))
 	(edit-url (lxml-attribute (lxml-find-element-with-attribute entry-xml :|link| :|rel| "edit")
-				  :|href|))
-	(good 0)
-	(total 0)
-	(subs 0)
-	(fails 0)
-	transforms)
+				  :|href|)))
+    (setf (cadr content-elt) new-content)
+    (access-protected-resource edit-url *access-token*
+			       :request-method :put
+			       :drakma-args `(:content ,(s-xml:print-xml-string entry-xml))
+			       )))
+
+(defun process-entry (entry-xml &key update? logfile)
+  (setq *xml entry-xml)
+  (let* ((content-elt (lxml-subelement entry-xml :|content|))
+	 (id (let ((raw (cadr (lxml::lxml-subelement entry-xml :|id|) )))
+	       ;; "tag:blogger.com,1999:blog-15644559.post-8259843894206778183"
+	       (multiple-value-bind (match strings)
+		   (ppcre:scan-to-strings "post-(\\d+)" raw)
+		 (svref strings 0))))
+	 (content (cadr content-elt))
+	 (title (cadr (lxml-subelement entry-xml :|title|)))
+	 (url (lxml-attribute (lxml-find-element-with-attribute entry-xml :|link| :|rel| "alternate")
+			      :|href|))
+
+	 (good 0)
+	 (total 0)
+	 (subs 0)
+	 (fails 0)
+	 transforms)
     (with-logging (s logfile)
       (:princ "Working on ")
       ((:a :href url)
        (:princ title))
-      :br)
+      :br
+      (:princ id))
     (setq transforms
-    (process-text content
-		  :excludes '("http://www.blogger.com")
-		  :reporter
-		  #'(lambda (url status &optional problem sub)
-		      (incf total)
-		      (case status
-			(:good (incf good))
-			(:bad
-			 (if sub (incf subs) (incf fails))
-			 (with-logging (s logfile)
-			   (:li
-			    ((:a :href url)
-			     (:princ-safe url))
-			    (:princ " ")
-			    (:princ-safe problem)
-			    :br
-			    (when sub
-			      (html
-				((:a :href sub)
-				 (:princ-safe sub)))))))))))
+	  (process-text content
+			:excludes '("http://www.blogger.com")
+			:reporter
+			#'(lambda (url status &optional problem sub)
+			    (incf total)
+			    (case status
+			      (:good (incf good))
+			      (:bad
+			       (if sub (incf subs) (incf fails))
+			       (with-logging (s logfile)
+				 (:li
+				  ((:a :href url)
+				   (:princ-safe url))
+				  (:princ " ")
+				  (:princ-safe problem)
+				  :br
+				  (when sub
+				    (html
+				      ((:a :href sub)
+				       (:princ-safe sub)))))))))))
     (with-logging (s logfile)
-       (:br (:princ (format nil "~A total links, ~A still valid, ~A substitutions, ~A failures"
-				   total
-				   good
-				   subs
-				   fails)))
-	      :hr)
+      (:br (:princ (format nil "~A total links, ~A still valid, ~A substitutions, ~A failures"
+			   total
+			   good
+			   subs
+			   fails)))
+      :hr
+      :newline)
     (when (and update? transforms)
       (let ((new-text content))
 	(dolist (transform transforms)
 	  (setq new-text (mt:string-replace new-text (car transform) (cadr transform))))
-	(setf (cadr content-elt) new-text)
-	(access-protected-resource edit-url *access-token*
-				   :request-method :put
-				   :drakma-args `(:content ,(s-xml:print-xml-string entry-xml))
-				   )	
-
+	(update-entry entry-xml new-text)
 	))))
 
 
