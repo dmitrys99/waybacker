@@ -22,7 +22,7 @@
 	      (remove-duplicates (match-re-multiple "\"(http://web.archive.org/web/.+?/.+?)\"" directory) :test #'string-equal)))))
 
 ;;; Return the most recent wayback url corresponding to argument
-(defun wayback (url)
+(mt:def-cached-function wayback (url)
   (car (sort (waybacks url) #'string-greaterp)))
 
 ;;; for utilities

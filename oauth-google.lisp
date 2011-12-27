@@ -1,11 +1,5 @@
 (in-package :wb)
 
-;(ql:quickload '(:cl-oauth :s-xml))
-
-;(use-package :cl-oauth)
-;(use-package :wuwei)
-;(use-package :lxml)
-
 (defparameter *key* "wuwei.name")
 (defparameter *secret* "xoHi0NAM5RW9_C0sK-M5VUuB")
 
@@ -179,18 +173,16 @@
      (let ((*html-stream* s))
        (html ,@body))))
 
-(defun update-entry (entry-xml new-content)
-  (let ((content-elt (lxml-subelement entry-xml :|content|))
-	(edit-url (lxml-attribute (lxml-find-element-with-attribute entry-xml :|link| :|rel| "edit")
-				  :|href|)))
+(defun update-entry (entry new-content)
+  (let* ((entry-xml (saved-entry-xml entry))
+	 (content-elt (lxml-subelement entry-xml :|content|))
     (setf (cadr content-elt) new-content)
-    (access-protected-resource edit-url *access-token*
+    (access-protected-resource (saved-entry-edit-url entry) *access-token*
 			       :request-method :put
 			       :drakma-args `(:content ,(s-xml:print-xml-string entry-xml))
-			       )))
+			       ))))
 
 (defun process-entry (entry-xml &key update? logfile)
-  (setq *xml entry-xml)
   (let* ((content-elt (lxml-subelement entry-xml :|content|))
 	 (id (let ((raw (cadr (lxml::lxml-subelement entry-xml :|id|) )))
 	       ;; "tag:blogger.com,1999:blog-15644559.post-8259843894206778183"
@@ -283,7 +275,7 @@
 	    (html (:h1 (:princ-safe (format nil "No results for blog ~A" id))))
 	    )))))
 
-;;; Basic
+;;; Basic (obso)
 (defun render-entry (entry)
   (destructuring-bind ((id title url edit-url)
 		       (total good subs fails)
@@ -306,21 +298,37 @@
 			    subs
 			    fails)))))))
 
+(defstruct saved-entry
+  id
+  title
+  url
+  edit-url
+  xml
+  total-count
+  good-count
+  sub-count
+  fail-count
+  sub-data
+  transforms)
+
 (defun do-substitutions (entry)
-  (setq *entry entry)
-  )
+  (let* ((entry-xml (saved-entry-xml entry))
+	 (content-elt (lxml-subelement entry-xml :|content|))
+	 (new-text (cadr content-elt)))
+    (dolist (transform transforms)
+      (setq new-text (mt:string-replace new-text (car transform) (cadr transform))))
+    (update-entry entry new-text)
+    ))
 
 ;;; Get me rewrite!
 (defun render-entry (entry)
-  (destructuring-bind ((id title url edit-url)
-		       (total good subs fails)
-		       sub-data transforms) entry
-    (let ((button-id (mt:string+ "b" id)))
-
+    (let* ((id (saved-entry-id entry))
+	   (sub-data (saved-entry-sub-data entry))
+	   (button-id (mt:string+ "b" id)))
       (html
 	:newline
 	(:hr
-	 (:h4 ((:a :href url) (:princ-safe title)))
+	 (:h4 ((:a :href url) (:princ-safe (saved-entry-title entry))))
 	 ((:form :method "POST" 
 		 :onsubmit (unless (zerop subs)
 			     (remote-function
@@ -351,7 +359,7 @@
 
 	  (unless (zerop subs)
 	    (html :br ((:input :type "submit" :value "Repair" :id button-id))))
-	  ))))))
+	  )))))
 
       
 
@@ -361,7 +369,6 @@
      ,@body))
 
 (defun process-entry (entry-xml &key update? logfile)
-  (setq *xml entry-xml)
   (let* ((content-elt (lxml-subelement entry-xml :|content|))
 	 (id (let ((raw (cadr (lxml::lxml-subelement entry-xml :|id|) )))
 	       ;; "tag:blogger.com,1999:blog-15644559.post-8259843894206778183"
@@ -395,10 +402,14 @@
     (with-saving (s logfile)
       (terpri s)
       (write
-       `((,id ,title ,url ,edit-url)
-	 (,total ,good ,subs ,fails)
-	 ,sub-data
-	 ,transforms)
+       (make-saved-entry
+	:id id
+	:title title
+	:url url
+	:edit-url edit-url
+	:xml entry-xml
+	:sub-data sub-data
+	:transforms transforms)
        :readably t
        :stream s))))
 
