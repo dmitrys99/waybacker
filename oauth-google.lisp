@@ -9,7 +9,7 @@
 (defparameter *key* "wuwei.name")
 (defparameter *secret* "xoHi0NAM5RW9_C0sK-M5VUuB")
 
-(defparameter *callback-uri* "http://3qt2.localtunnel.com/oauth")
+(defparameter *callback-uri* "http://3aby.localtunnel.com/oauth")
 (defparameter *callback-port* 8080
   "Port to listen on for the callback")
 
@@ -141,11 +141,16 @@
 	     (title (cadr (lxml-subelement xml :|title|)))
 	     (total (parse-integer (cadr (lxml-subelement xml :|openSearch:totalResults|))))
 	     (per-page (parse-integer (cadr (lxml-subelement xml :|openSearch:itemsPerPage|))))
-	     (logfile "/tmp/waybacker-log.html")
+;	     (logfile "/tmp/waybacker-log.html")
+	     (logfile (blog-result-file id))
 	     (start-time (get-universal-time))
 	     ) ;+++ temp of course
+	(with-http-response-and-body (req ent)
 	(html (:princ (format nil "Working on ~A..." title)))
+	;; 
 	(with-open-file (s logfile :direction :output :if-exists :supersede :if-does-not-exist :create)
+	  (write `(,title ,id) :stream s))
+	'(with-open-file (s logfile :direction :output :if-exists :supersede :if-does-not-exist :create)
 	  (let ((*html-stream* s))
 	    (html
 	      (:head
@@ -160,7 +165,7 @@
 	(html (:princ "Finished!")
 	      :br
 	      (:princ (format nil "Took ~A seconds" (- (get-universal-time) start-time))))
-	)))))
+	))))))
 
 (defun process-page (id page page-size &key logfile)
   (let* ((url (format nil "http://www.blogger.com/feeds/~A/posts/default?start-index=~A&max-results=~A" id (* page page-size) page-size))
@@ -245,7 +250,157 @@
 	))))
 
 
+;;; stored result pages
+
+(defun blog-result-file (blog-id)
+  (make-pathname :defaults "/tmp/foo.lisp" :name (mt:fast-string blog-id)))
+
+(publish :path "/blog-results"
+	 :function 'blog-results)
+
+;;; +++ security!
+(defun blog-results (req ent)
+  (wu:with-session (req ent)
+    (with-http-response-and-body (req ent)
+      (let ((id (net.aserve:request-query-value "id" req)))
+	(if (probe-file (blog-result-file id))
+	    (with-open-file (s (blog-result-file id))
+	      (let* ((header (read s))
+		     (title (car header)))
+		(html
+		  (:head
+		   ((:link :rel "stylesheet" :type "text/css" :href "/wupub/wuwei.css"))
+		   ((:script :type "text/javascript" :src "/wupub/prototype.js"))
+		   ((:script :type "text/javascript" :src "/wupub/wuwei.js"))
+		   )
+		  :newline
+		  (:body
+		   (:h1 (format nil "Results for ~A" title))))
+		(do ((entry (read s) (read s nil :eof)))
+		    ((eq entry :eof))
+		  (render-entry entry))))
+	    ;; no file
+	    (html (:h1 (:princ-safe (format nil "No results for blog ~A" id))))
+	    )))))
+
+;;; Basic
+(defun render-entry (entry)
+  (destructuring-bind ((id title url edit-url)
+		       (total good subs fails)
+		       sub-data transforms) entry
+    (html
+      :newline
+      (:hr
+       (:h4 ((:a :href url) (:princ-safe title)))
+       (:ul
+	(dolist (sub sub-data)
+	  (html (:li ((:a href (car sub)) (:princ-safe (car sub)))
+		     (when (cadr sub)
+		       (html 
+			 :br
+			 ((:a href (cadr sub)) (:princ-safe (cadr sub)))
+			 ))))))
+       (:br (:princ (format nil "~A total links, ~A still valid, ~A substitutions, ~A failures"
+			    total
+			    good
+			    subs
+			    fails)))))))
+
+(defun do-substitutions (entry)
+  (setq *entry entry)
+  )
+
+;;; Get me rewrite!
+(defun render-entry (entry)
+  (destructuring-bind ((id title url edit-url)
+		       (total good subs fails)
+		       sub-data transforms) entry
+    (let ((button-id (mt:string+ "b" id)))
+
+      (html
+	:newline
+	(:hr
+	 (:h4 ((:a :href url) (:princ-safe title)))
+	 ((:form :method "POST" 
+		 :onsubmit (unless (zerop subs)
+			     (remote-function
+			      (ajax-continuation ()
+				(with-session (wu::req wu::ent) ;+++ !
+				  (do-substitutions entry)
+				  (render-update
+				    (:replace button-id (:b "Done!"))
+				    (:alert (format nil "OK: ~A" entry))
+				    )
+				  ))
+			      :form t
+			      :spinner button-id
+			      :complete ""))) ;disable button +++
+	  (:ul
+	   (dolist (sub sub-data)
+	     (html (:li ((:a href (car sub)) (:princ-safe (car sub)))
+			(when (cadr sub)
+			  (html 
+			    :br
+			    ((:a href (cadr sub)) (:princ-safe (cadr sub)))
+			    ))))))
+	  (:br (:princ (format nil "~A total links, ~A still valid, ~A substitutions, ~A failures"
+			       total
+			       good
+			       subs
+			       fails)))
+
+	  (unless (zerop subs)
+	    (html :br ((:input :type "submit" :value "Repair" :id button-id))))
+	  ))))))
 
       
-	 
-	 
+
+;;; Redef to save data
+(defmacro with-saving ((s file) &body body)
+  `(with-open-file (,s ,file :direction :output :if-exists :append :if-does-not-exist :create)
+     ,@body))
+
+(defun process-entry (entry-xml &key update? logfile)
+  (setq *xml entry-xml)
+  (let* ((content-elt (lxml-subelement entry-xml :|content|))
+	 (id (let ((raw (cadr (lxml::lxml-subelement entry-xml :|id|) )))
+	       ;; "tag:blogger.com,1999:blog-15644559.post-8259843894206778183"
+	       (multiple-value-bind (match strings)
+		   (ppcre:scan-to-strings "post-(\\d+)" raw)
+		 (svref strings 0))))
+	 (content (cadr content-elt))
+	 (title (cadr (lxml-subelement entry-xml :|title|)))
+	 (url (lxml-attribute (lxml-find-element-with-attribute entry-xml :|link| :|rel| "alternate")
+			      :|href|))
+	(edit-url (lxml-attribute (lxml-find-element-with-attribute entry-xml :|link| :|rel| "edit")
+				  :|href|))
+	 (good 0)
+	 (total 0)
+	 (subs 0)
+	 (fails 0)
+	 transforms sub-data)
+    (setq sub-data
+	  (mt:collecting
+	    (setq transforms
+		  (process-text content
+				:excludes '("http://www.blogger.com")
+				:reporter
+				#'(lambda (url status &optional problem sub)
+				    (incf total)
+				    (case status
+				      (:good (incf good))
+				      (:bad
+				       (if sub (incf subs) (incf fails))
+				       (mt:collect (list url sub)))))))))
+    (with-saving (s logfile)
+      (terpri s)
+      (write
+       `((,id ,title ,url ,edit-url)
+	 (,total ,good ,subs ,fails)
+	 ,sub-data
+	 ,transforms)
+       :readably t
+       :stream s))))
+
+
+
