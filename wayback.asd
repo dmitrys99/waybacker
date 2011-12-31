@@ -13,12 +13,14 @@
     :licence "Lesser Lisp General Public License"
     ; +++ not sure wuwei is actually needed
     :depends-on (#-:ALLEGRO :aserve :mtlisp :cl-ppcre :wuwei 
-			    :cl-oauth :s-xml)
+;no more			    :cl-oauth
+			    :drakma :s-xml :cl-json)
     :serial t
     :components 
     ((:file "pkg")
      (:file "wayback")
      (:file "wayback-ui")
-     (:file "oauth-aserve-adapter")
-     (:file "oauth-google")
+;     (:file "oauth-aserve-adapter")
+;     (:file "oauth-google")
+     (:file "oauth2-google")
      ))

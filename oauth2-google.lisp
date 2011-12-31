@@ -1,56 +1,122 @@
 (in-package :wb)
 
-(defparameter *key* "wuwei.name")
-(defparameter *secret* "xoHi0NAM5RW9_C0sK-M5VUuB")
+(defparameter *client-id* "453380357476-k2h67ojck9ou4sce6r2jvgml8fsq263b.apps.googleusercontent.com")
+(defparameter *client-secret* "IGiueat52twXud_xqS5OuY7X")
+(defparameter *oauth2-callback* "")
 
-;;; Values from API console (not sure these are right, and doesn't help)
-;(defparameter *key* "453380357476-k2h67ojck9ou4sce6r2jvgml8fsq263b.apps.googleusercontent.com")
-;(defparameter *secret* "IGiueat52twXud_xqS5OuY7X")
+#| To debug locally
+- run localtunnel to get id
+- (localtunnel-setup <4-char-id>)
+- verify that it works
+- in API console, set callback appropriately |#
+(defun localtunnel-setup (id)
+  (setf *oauth2-callback* (format nil "http://~A.localtunnel.com/oauth2callback" id)))
 
-(defparameter *callback-uri* "http://56hp.localtunnel.com/oauth")
-(defparameter *callback-port* 8090
-  "Port to listen on for the callback")
-
-(defparameter *get-request-token-endpoint* "https://www.google.com/accounts/OAuthGetRequestToken")
-(defparameter *auth-request-token-endpoint* "https://www.google.com/accounts/OAuthAuthorizeToken")
-(defparameter *get-access-token-endpoint* "https://www.google.com/accounts/OAuthGetAccessToken")
-(defparameter *consumer-token* (make-consumer-token :key *key* :secret *secret*))
-
-(def-session-variable *request-token* nil)
+;(def-session-variable *request-token* nil)
 (def-session-variable *access-token* nil)
 
-(defun get-access-token ()
-  (obtain-access-token *get-access-token-endpoint* *request-token*))
-
-;;; get a request token
-(defun get-request-token (scope)
-  ;; TODO: scope could be a list.
-  (obtain-request-token
-    *get-request-token-endpoint*
-    *consumer-token*
-    :callback-uri *callback-uri*
-    :user-parameters `(("scope" . ,scope))))
-
-;;; No longer called
-(defun obtain-access ()
-;  (setf *request-token* (get-request-token "http://www.google.com/calendar/feeds/"))
-  (setf *request-token* (get-request-token "http://www.blogger.com/feeds/"))
-  (let ((auth-uri (make-authorization-uri *auth-request-token-endpoint* *request-token*)))
-    (format t "Please authorize the request token at this URI: ~A~%" (puri:uri auth-uri))))
-
-(def-session-variable *request-token* nil)
+;;; OAuth2 stuff starts here
 
 (publish :path "/obtain"
 	 :content-type "text/html"
 	 :function #'(lambda (req ent)
 		       (wu:with-session (req ent) 
-			 (setf *request-token* (get-request-token "http://www.blogger.com/feeds/"))
-			 (let ((auth-uri (make-authorization-uri *auth-request-token-endpoint* *request-token*)))
+;			 (setf *request-token* (get-request-token "http://www.blogger.com/feeds/"))
+			 (let ((auth-uri (get-auth-code-uri)))
 			   (net.aserve:with-http-response (req ent)
 			     (net.aserve:with-http-body (req ent)
 			       (html
 				 (render-scripts
 				   (:redirect auth-uri)))))))))
+
+
+;;; This URI gets passed to client through a redirect
+(defun get-auth-code-uri ()
+  (let ((endpoint (puri:uri "https://accounts.google.com/o/oauth2/auth"))
+	(parameters 
+	 `(("response_type" . "code")
+	   ("client_id" . ,*client-id*)
+;	   ("redirect_uri" . "http://wuwei.name/oauth2callback") ;argh, this has to be registered, so can't use localtunnel??? fuck.
+	   ("redirect_uri" . ,*oauth2-callback* )
+	   ("scope" .  "http://www.blogger.com/feeds/")
+	   ("access_type" . "offline"))))
+    (setf (puri:uri-query endpoint)
+	  (drakma::alist-to-url-encoded-string parameters :latin1))
+    (puri:render-uri endpoint nil)
+    ))
+     
+(publish :path "/oauth2callback"
+	 :function 'oauth2callback)
+
+(defun oauth2callback (req ent)
+  (print `(results of oauth2callback ,(request-query req)))
+  (let ((error (request-query-value "error" req))
+	(code (request-query-value "code" req)))
+    (if error
+	(with-http-response-and-body (req ent)
+	  (html 
+	    (:h1 "Not authorized")
+	    (:princ-safe error)))
+	(progn
+	  (multiple-value-setq (*access-token* *refresh-token*)
+	    (get-access-token code))
+	  (with-http-response-and-body (req ent)
+	    (html 
+	      (:h1 "Got access token")
+	      (:princ-safe *access-token*)
+	      :br
+	      ((:a :href "/do-something") "Do something")
+	      ))))))
+
+(publish :path "/do-something"
+	 :function 'do-something)
+
+(defun do-something (req ent)
+  (let* ((result (flexi-streams:octets-to-string (access-protected-resource-with-error "http://www.blogger.com/feeds/default/blogs")))
+	 (blogs
+	  (blog-list-interpreter (parse-xml result))))
+    (with-http-response-and-body (req ent)
+      (html 
+	(:h2 (:princ "blogs gotten"))
+	(:ul
+	 (dolist (b blogs)
+	   (html
+	     (:li ((:a :href (process-blog-link b)) (:princ (car b)))))))))))
+
+(defun access-protected-resource (url access-token &rest ignore)
+  (drakma:http-request url 
+		       :additional-headers
+		       `(("GData-Version" . "2")
+			 ("Authorization" . ,(format nil "Bearer ~A" access-token)))))
+		       
+
+(defun access-protected-resource-with-error (url &rest other-args)
+  (multiple-value-bind  (result status prob-hint prob-advice)
+      (apply #'access-protected-resource url *access-token* other-args)
+    (case status
+      (200 result)
+      (t (error "Failed to get protected resource ~A: ~A: ~A: ~A" url status prob-hint prob-advice)))))
+
+(defun get-access-token (code)
+  (let ((endpoint "https://accounts.google.com/o/oauth2/token") 
+	(parameters `(("code" . ,code)
+		      ("client_id" . ,*client-id*)
+		      ("client_secret" . ,*client-secret*)
+		      ("redirect_uri" . ,*oauth2-callback*) ;+++ I THINK this is the same one as in the first step...
+		      ("grant_type" . "authorization_code"))))
+    (multiple-value-bind (body status headers) ;...
+	(drakma:http-request endpoint 
+			     :method :post
+			     :parameters parameters)
+      (let ((json-response
+	     (json::decode-json-from-string 
+	       (flexi-streams:octets-to-string body))))
+      (if (= status 200)
+	  (let ((access-token (cdr (assoc :ACCESS--TOKEN json-response)))
+		(refresh-token (cdr (assoc :REFRESH--TOKEN json-response))))
+	    (values access-token refresh-token))
+	  (error "Failed to get access token ~A ~A" status json-response))))))
+
 
 ;(net.aserve:start :port *callback-port*)
 
@@ -74,13 +140,6 @@
 (defun parse-xml (xml)
   (let ((s-xml:*ignore-namespaces* t))
     (s-xml:parse-xml-string (coerce-to-string xml) :output-type :lxml)))
-
-(defun access-protected-resource-with-error (url &rest other-args)
-  (multiple-value-bind  (result status prob-hint prob-advice)
-      (apply #'access-protected-resource url *access-token* other-args)
-    (case status
-      (200 t)
-      (t (error "Failed to get protected resource ~A: ~A: ~A: ~A" url status prob-hint prob-advice)))))
 
 (defun oauth-aserve (req ent)
   (setq *request* req)
