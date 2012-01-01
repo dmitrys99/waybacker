@@ -18,9 +18,12 @@
     :serial t
     :components 
     ((:file "pkg")
+     (:file "utils")
      (:file "wayback")
-     (:file "wayback-ui")
+;obso?     (:file "wayback-ui")
 ;     (:file "oauth-aserve-adapter")
 ;     (:file "oauth-google")
      (:file "oauth2-google")
+     (:file "blogger")
+     (:file "web-ui")
      ))
