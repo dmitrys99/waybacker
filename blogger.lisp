@@ -21,7 +21,7 @@
 ;;; pull id out of tag:blogger.com,1999:user-02356162954308418556.blog-15644559
 (defun extract-blog-id (string)
   (multiple-value-bind (match strings)
-      (ppcre:scan-to-strings "blog-(\\d+)" raw)
+      (ppcre:scan-to-strings "blog-(\\d+)" string)
     (svref strings 0)))
 
 ;;; stored results
