@@ -12,3 +12,4 @@
 
 (ql:quickload :waybacker)
 
+(load "secrets.lisp")

@@ -12,17 +12,14 @@
     :description "Use Wayback Machine at archive.org to update web pages and blogs"
     :licence "Lesser Lisp General Public License"
     ; +++ not sure wuwei is actually needed
-    :depends-on (#-:ALLEGRO :aserve :mtlisp :cl-ppcre :wuwei 
-;no more			    :cl-oauth
-			    :drakma :s-xml :cl-json)
+    :depends-on (#-:ALLEGRO :aserve
+			    :mtlisp :wuwei 
+			    :drakma :s-xml :cl-json :cl-smtp  :cl-ppcre)
     :serial t
     :components 
     ((:file "pkg")
      (:file "utils")
      (:file "wayback")
-;obso?     (:file "wayback-ui")
-;     (:file "oauth-aserve-adapter")
-;     (:file "oauth-google")
      (:file "oauth2-google")
      (:file "blogger")
      (:file "web-ui")

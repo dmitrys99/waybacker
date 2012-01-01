@@ -61,7 +61,6 @@
     (dotimes (page (ceiling total per-page))
       (unless (zerop page)
 	(process-page id page per-page :logfile logfile)))
-    (send-email)
     ))
 
 (defun process-page (id page page-size &key logfile)

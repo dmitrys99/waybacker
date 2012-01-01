@@ -2,6 +2,8 @@
 
 ;;; The actual UI (for Blogger version)
 
+;;; :::::::::::::::: Home page
+
 (publish :path "/"
 	 :content-type "text/html"
 	 :function #'(lambda (req ent)
@@ -10,15 +12,18 @@
 			       (:princ "Welcome to Blogger Link Refresher") :br
 			       ((:a :href "/obtain") "Sign in via Google")))))
 
+;;; :::::::::::::::: Sign into google (redirects)
+
 (publish :path "/obtain"
 	 :content-type "text/html"
 	 :function #'(lambda (req ent)
-; unnecessary I think		       (wu:with-session (req ent) 
-			 (let ((auth-uri (get-auth-code-uri)))
+		       (let ((auth-uri (get-auth-code-uri)))
 			   (wu:with-http-response-and-body (req ent)
 			     (html
 			       (render-scripts
 				 (:redirect auth-uri)))))))
+
+;;; :::::::::::::::: OAuth callback, gets and displays list of blogs
 
 (publish :path "/oauth2callback"
 	 :function 'oauth2callback)
@@ -56,6 +61,8 @@
 (defun process-blog-link (b)
   (format nil "/process-blog?id=~A" (cadr b)))
 
+;;; :::::::::::::::: Process a blog (gets info and shows summary; actual processing happens in background)
+
 (publish :path "/process-blog"
 	 :function 'process-blog-ui)
 
@@ -68,20 +75,48 @@
 	     (xml (parse-xml result))
 	     (title (cadr (lxml-subelement xml :|title|)))
 	     (total (parse-integer (cadr (lxml-subelement xml :|openSearch:totalResults|))))
+	     (email (get-user-email))
 	     ) 
 	(with-http-response-and-body (req ent)
 	  (html
 	  (:princ (format nil "Working on ~A.  There are ~A posts." title total))
 	  :p
-	  (:princ "We'll send you an email when it's done, with a link to the results.")
-	  (:princ (get-user-email))	;+++
+	  (:princ (format nil "We'll send you an email at ~A when it's done, with a link to the results." email))
 	  ))
 	;; +++ this is probably going to require something more robust...
 	(mt:in-background (format nil "Worker for ~A ~A" id title)
-	  (process-blog xml))
+	  (process-blog xml)
+	  (send-done-email email title id))
 	)))))
 
-;;; Post email
+;;; :::::::::::::::: Post email
+
+;;; for gmail, this has to be an application-specific password: https://accounts.google.com/IssuedAuthSubTokens
+;;; DO NOT check this into source control! It gives full access to a google account
+(defparameter *smtp-gmail-name* nil)
+(defparameter *smtp-gmail-password* nil) 
+
+(defun our-host ()
+  (puri:uri-host (puri:uri *oauth2-callback*)))
+
+;;; It is I think possible to do this through OAuth (which would avoid having to store a password). But it might
+;;; require hacking cl-smtp and I don't want to bother right now.
+(defun send-done-email (to title id)
+  (cl-smtp:send-email "smtp.gmail.com"
+		      "waybacker@hyperphor.com"
+		      to
+		      (format nil "Your blog ~A has been processed" title)
+		      nil
+		      :ssl :tls
+		      :authentication `(:login ,*smtp-gmail-name* ,*smtp-gmail-password*)
+		      :html-message 		      (html-string 
+			(:princ (format nil "Your blog ~A has been processed by Waybacker." title))
+			:p
+			((:a :href (format nil "http://~A/blog-results?id=~A" (our-host) id)) "Click here")
+			" to see the results.")
+		      ))
+
+;;; :::::::::::::::: Display results
 
 (publish :path "/blog-results"
 	 :content-type "text/html"

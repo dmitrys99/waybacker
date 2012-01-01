@@ -1,8 +1,8 @@
 (in-package :wb)
 
 ;;; These values are obtained (for Google) from here: https://code.google.com/apis/console
-(defparameter *client-id* "453380357476-k2h67ojck9ou4sce6r2jvgml8fsq263b.apps.googleusercontent.com")
-(defparameter *client-secret* "IGiueat52twXud_xqS5OuY7X")
+(defparameter *client-id* nil)
+(defparameter *client-secret* nil)
 (defparameter *oauth2-callback* "")
 (defparameter *oauth2-scopes* "http://www.blogger.com/feeds/ https://www.google.com/m8/feeds")
 
@@ -29,7 +29,6 @@
     (setf (puri:uri-query endpoint)
 	  (drakma::alist-to-url-encoded-string parameters :latin1))
     (puri:render-uri endpoint nil)))
-     
 
 (defun access-protected-resource (url access-token &rest other-args)
   (assert access-token)
