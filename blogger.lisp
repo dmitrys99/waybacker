@@ -43,11 +43,11 @@
   good-count
   sub-count
   fail-count
-  sub-data
+  sub-data				;list of (url sub status error-string)
   transforms)
 
 ;;; argument is parsed xml from initial query
-(defun process-blog (xml)
+(defun process-blog (xml &key update?)
   (let* ((title (cadr (lxml-subelement xml :|title|))) 
 	 (id (extract-blog-id (cadr (lxml-subelement xml :|id|))))
 	 (per-page (parse-integer (cadr (lxml-subelement xml :|openSearch:itemsPerPage|))))
@@ -57,13 +57,13 @@
       (write `(,title ,id) :stream s))
     ;; we have first page
     (dolist (entry (lxml-find-elements-with-tag xml :|entry|))
-      (process-entry entry :logfile logfile :update? t)) ;+++ TEMP turn on update by default
+      (process-entry entry :logfile logfile :update? update?))
     (dotimes (page (ceiling total per-page))
       (unless (zerop page)
-	(process-page id page per-page :logfile logfile)))
+	(process-blogger-page id page per-page :logfile logfile)))
     ))
 
-(defun process-page (id page page-size &key logfile)
+(defun process-blogger-page (id page page-size &key logfile)
   (let* ((url (format nil "http://www.blogger.com/feeds/~A/posts/default?start-index=~A&max-results=~A" id (* page page-size) page-size))
 	 (result (access-protected-resource-with-error url))
 	 (xml (parse-xml result)))
@@ -88,37 +88,42 @@
 	 (total 0)
 	 (subs 0)
 	 (fails 0)
-	 transforms sub-data)
-    (setq sub-data
+	 transforms
+	 (sub-data
 	  (mt:collecting
 	    (setq transforms
 		  (process-text content
 				:excludes '("http://www.blogger.com")
 				:reporter
-				#'(lambda (url status &optional problem sub)
+				#'(lambda (url status &optional sub error-string)
 				    (incf total)
-				    (case status
-				      (:good (incf good))
-				      (:bad
-				       (if sub (incf subs) (incf fails))
-				       (mt:collect (list url sub)))))))))
+				    (if (eq status :good)
+					(incf good)
+					(progn 
+					  (if sub (incf subs) (incf fails))
+					  (mt:collect (list url sub status error-string)))))))))
+	 (entry 
+	  (make-saved-entry
+	   :id id
+	   :title title
+	   :url url
+	   :edit-url edit-url
+	   :xml entry-xml
+	   :sub-data sub-data
+	   :transforms transforms
+	   :total-count total
+	   :good-count good
+	   :sub-count subs
+	   :fail-count fails)))
     (with-saving (s logfile)
       (terpri s)
       (write
-       (make-saved-entry
-	:id id
-	:title title
-	:url url
-	:edit-url edit-url
-	:xml entry-xml
-	:sub-data sub-data
-	:transforms transforms
-	:total-count total
-	:good-count good
-	:sub-count subs
-	:fail-count fails)
+       entry
        :readably t
-       :stream s))))
+       :stream s))
+    (when update?
+      (do-substitutions entry))
+    ))
 
 (defun update-entry (entry new-content)
   (let* ((entry-xml (saved-entry-xml entry))
@@ -133,3 +138,16 @@
 					  :method :put
 					  :content-type "application/atom+xml" ;+++ must be present or drakma gets confused
 					  :content (s-xml:print-xml-string entry-xml))))
+
+
+
+;;; Not Blogger, but a Google API
+
+;;; requires session vars to be set
+
+(defun get-user-email ()
+  (let* ((res (coerce-to-string (access-protected-resource-with-error
+				 "https://www.google.com/m8/feeds/contacts/default/full"))) ;this gets all, not sure how to just get ours
+	 (xml (parse-xml res))
+	 (email (cadr (lxml-subelement xml :|id|))))
+    email))

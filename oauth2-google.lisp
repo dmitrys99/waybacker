@@ -65,12 +65,4 @@
 	    (values access-token refresh-token))
 	  (error "Failed to get access token ~A ~A" status json-response))))))
 
-;;; requires session vars to be set
-(defun get-user-email ()
-  (let* ((res (coerce-to-string (access-protected-resource-with-error
-				 "https://www.google.com/m8/feeds/contacts/default/full"))) ;this gets all, not sure how to just get ours
-	 (xml (parse-xml res))
-	 (email (cadr (lxml-subelement xml :|id|))))
-    email))
-
 

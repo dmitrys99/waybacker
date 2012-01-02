@@ -126,6 +126,7 @@
 (defun blog-results (req ent)
   (wu:with-session (req ent)
     (with-http-response-and-body (req ent)
+      (with-html-error-handling 
       (let ((id (net.aserve:request-query-value "id" req)))
 	(if (probe-file (blog-result-file id))
 	    (with-open-file (s (blog-result-file id))
@@ -145,7 +146,7 @@
 		     (render-entry entry))))))
 	    ;; no file
 	    (html (:h1 (:princ-safe (format nil "No results for blog ~A" id))))
-	    )))))
+	    ))))))
 
 ;;; Get me rewrite!
 (defun render-entry (entry)
@@ -170,13 +171,16 @@
 			      :spinner button-id
 			      :complete ""))) ;disable button +++
 	  (:ul
-	   (dolist (sub sub-data)
-	     (html (:li ((:a href (car sub)) (:princ-safe (car sub)))
-			(when (cadr sub)
-			  (html 
-			    :br
-			    ((:a href (cadr sub)) (:princ-safe (cadr sub)))
-			    ))))))
+	   (dolist (sub-list sub-data)
+	     (destructuring-bind (url sub status prob) sub-list
+	     (html (:li ((:a href url) (:princ-safe url))
+			(when sub
+			  (html :br
+				((:a href sub) (:princ-safe sub))))
+			(when (or status prob)
+			  (html :br
+				(:princ-safe (format nil "~A: ~A" status prob)))))))))
+
 	  (:br (:princ (format nil "~A total links, ~A still valid, ~A substitutions, ~A failures"
 			       (saved-entry-total-count entry)
 			       (saved-entry-good-count entry)

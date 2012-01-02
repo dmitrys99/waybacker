@@ -12,4 +12,4 @@
 
 (ql:quickload :waybacker)
 
-(load "secrets.lisp")
+(load (make-pathname :directory *waybacker-dir* :defaults "secrets.lisp"))

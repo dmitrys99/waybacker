@@ -46,20 +46,24 @@
     (setf (puri:uri-fragment uri) nil)
     (princ-to-string uri)))
 
+;;; Returns: T/NIL, if nil, code and error msg as second and third values
 (defun check-url (url &key full?)
-  (mt:report-and-ignore-errors
+  (handler-case
     (let ((url (defrag url)))
-      (multiple-value-bind (content resp headers)
-	  (drakma:http-request url :user-agent *user-agent* :method (if full? :get :head)) ;  soemtimes works, sometimes not
-	(declare (ignore content headers))
+      (multiple-value-bind (content resp headers uri stream foo msg)
+  	  (drakma:http-request url :user-agent *user-agent* :method (if full? :get :head)) ;  soemtimes works, sometimes not
+	(declare (ignore content headers uri stream foo))
 	(case resp
 	  (200 t)
 	  (405
 	   (if full?
-	       (values nil resp)
+	       (values nil resp msg)
 	       (check-url url :full? t)))
 	  (t
-	   (values nil resp)))))))
+	   (values nil resp msg)))))
+    (error (condition)
+      (values nil (type-of condition) (princ-to-string condition)))
+    ))
 	     
 (defun process-page (url &rest keys)
   (apply #'process-text (drakma:http-request url :user-agent *user-agent*) keys))
@@ -69,6 +73,7 @@
 
 ;;: Find URLs, check if they are live, if not try and substitute them
 ;;; +++ what about not http: urls?
+;;; reporter is a fn of three arguments, URL, STATUS (:GOOD, :BAD, or a HTTP fail status code), optional subst, option error message
 (defun process-text (text &key excludes reporter)
   (let* ((url-idxs (match-re-multiple "[\\\"\\\'](https?://.+?\\..+?)[\\\"\\\']" text :return :index))
 	 (total (length url-idxs))
@@ -82,19 +87,19 @@
 		    (incf excluded)
 		    (progn
 		      (format t "~%Checking ~A..." url)	
-		      (multiple-value-bind (ok? problem)
+		      (multiple-value-bind (ok? code error-string)
 			  (check-url url)
 			(if ok?
 			    (progn (princ "OK") (incf good) (when reporter (funcall reporter url :good)))
 			    (progn
-			      (format t "bad ~A, looking for substitute..." problem)
+			      (format t "bad ~A: ~A, looking for substitute..." code error-string)
 			      (incf bad)
 			      (setf sub (mt:report-and-ignore-errors (wayback url)))
 			      (when sub
 				(incf substitutes)
 				(format t "found ~A" sub)
 				(mt:collect (list url sub)))
-			      (when reporter (funcall reporter url :bad problem sub))
+			      (when reporter (funcall reporter url code sub error-string))
 			      ))))))))))
     (format t "~%~A URLs total, ~A excluded, ~A good, ~A bad, ~A substitutes" total excluded good bad substitutes)
     results))
