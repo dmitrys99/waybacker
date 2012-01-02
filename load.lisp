@@ -9,7 +9,8 @@
 (load (make-pathname :directory (append (butlast *waybacker-dir*) '("cl-oauth")) :defaults "cl-oauth.asd"))
 (load (make-pathname :directory *waybacker-dir* :defaults "wayback.asd"))
 
-
 (ql:quickload :waybacker)
 
 (load (make-pathname :directory *waybacker-dir* :defaults "secrets.lisp"))
+(net.aserve:start :port 8080)
+(in-package :wb)
