@@ -84,10 +84,17 @@
 	  (:princ (format nil "We'll send you an email at ~A when it's done, with a link to the results." email))
 	  ))
 	;; +++ this is probably going to require something more robust...
-	(mt:in-background (format nil "Worker for ~A ~A" id title)
-	  (process-blog xml)
-	  (send-done-email email title id))
-	)))))
+	(let ((access-token *access-token*)) ;rigamarole to get session vars to bkgnd process (+++ might need other token eventually)
+	  (mt:in-background (format nil "Worker for ~A ~A" id title)
+	    (handler-case
+		(let ((*access-token* access-token))
+		  (process-blog xml)
+		  (send-done-email email title id))
+	      (error (condition)
+		(with-saving (s (blog-result-file id))
+		  (write `(error ,(type-of condition) ,(princ-to-string condition)) :stream s))
+		(write `(error ,(type-of condition) ,(princ-to-string condition)) :stream *debug-io*))
+	      ))))))))
 
 ;;; :::::::::::::::: Post email
 
@@ -148,7 +155,6 @@
 	    (html (:h1 (:princ-safe (format nil "No results for blog ~A" id))))
 	    ))))))
 
-;;; Get me rewrite!
 (defun render-entry (entry)
     (let* ((id (saved-entry-id entry))
 	   (sub-data (saved-entry-sub-data entry))
@@ -174,12 +180,14 @@
 	   (dolist (sub-list sub-data)
 	     (destructuring-bind (url sub status prob) sub-list
 	     (html (:li ((:a href url) (:princ-safe url))
-			(when sub
-			  (html :br
-				((:a href sub) (:princ-safe sub))))
 			(when (or status prob)
 			  (html :br
-				(:princ-safe (format nil "~A: ~A" status prob)))))))))
+				(:princ-safe (format nil "~A: ~A" status prob))))
+			(when sub
+			  (html :br
+				"Refresh to: "
+				((:a href sub) (:princ-safe sub))))
+			)))))
 
 	  (:br (:princ (format nil "~A total links, ~A still valid, ~A substitutions, ~A failures"
 			       (saved-entry-total-count entry)
