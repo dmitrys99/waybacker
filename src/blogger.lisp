@@ -26,8 +26,12 @@
 
 ;;; stored results
 
+(defvar *results-directory*
+  (merge-pathnames "results/" cl-user::*wb-here*))
+
 (defun blog-result-file (blog-id)
-  (make-pathname :defaults "/tmp/foo.lisp" :name (mt:fast-string blog-id))) ;+++ tmp is bad!
+  (merge-pathnames (make-pathname :name  (mt:fast-string blog-id) :type "lisp")
+		   *results-directory*))
 
 (defmacro with-saving ((s file) &body body)
   `(with-open-file (,s ,file :direction :output :if-exists :append :if-does-not-exist :create)

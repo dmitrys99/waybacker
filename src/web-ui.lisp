@@ -2,11 +2,22 @@
 
 ;;; The actual UI (for Blogger version)
 
+(defvar *virtual-host* nil)
+
+(publish :path "/sanity" 
+	 :function #'(lambda (req ent)
+		       (with-http-response-and-body (req ent)
+			 (html
+			   (:h1 "you fail")))))
+	 
+
 ;;; :::::::::::::::: Home page
 
 (publish :path "/"
+;	 :host *virtual-host*
 	 :content-type "text/html"
 	 :function #'(lambda (req ent)
+		       (setq *req req)
 		       (wu:with-http-response-and-body (req ent)
 			 (html (:h2 (:princ "welcome"))
 			       (:princ "Welcome to Blogger Link Refresher") :br
@@ -15,6 +26,7 @@
 ;;; :::::::::::::::: Sign into google (redirects)
 
 (publish :path "/obtain"
+;	 :host *virtual-host*
 	 :content-type "text/html"
 	 :function #'(lambda (req ent)
 		       (let ((auth-uri (get-auth-code-uri)))
@@ -26,6 +38,7 @@
 ;;; :::::::::::::::: OAuth callback, gets and displays list of blogs
 
 (publish :path "/oauth2callback"
+;	 :host *virtual-host*
 	 :function 'oauth2callback)
 
 (defun oauth2callback (req ent)
@@ -64,6 +77,7 @@
 ;;; :::::::::::::::: Process a blog (gets info and shows summary; actual processing happens in background)
 
 (publish :path "/process-blog"
+;	 :host *virtual-host*
 	 :function 'process-blog-ui)
 
 (defun process-blog-ui (req ent)
@@ -126,6 +140,7 @@
 ;;; :::::::::::::::: Display results
 
 (publish :path "/blog-results"
+;	 :host *virtual-host*
 	 :content-type "text/html"
 	 :function 'blog-results)
 
