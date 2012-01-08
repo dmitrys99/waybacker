@@ -46,21 +46,24 @@
     (setf (puri:uri-fragment uri) nil)
     (princ-to-string uri)))
 
+(defparameter *timeout* 30)		;seconds
+
 ;;; Returns: T/NIL, if nil, code and error msg as second and third values
 (defun check-url (url &key full?)
   (handler-case
-    (let ((url (defrag url)))
-      (multiple-value-bind (content resp headers uri stream foo msg)
-  	  (drakma:http-request url :user-agent *user-agent* :method (if full? :get :head)) ;  soemtimes works, sometimes not
-	(declare (ignore content headers uri stream foo))
-	(case resp
-	  (200 t)
-	  (405
-	   (if full?
-	       (values nil resp msg)
-	       (check-url url :full? t)))
-	  (t
-	   (values nil resp msg)))))
+      (let ((url (defrag url)))
+	(acl-compat.mp:with-timeout (*timeout* (return-from check-url (values nil 999 "Timed out")))
+	  (multiple-value-bind (content resp headers uri stream foo msg)
+	      (drakma:http-request url :user-agent *user-agent* :method (if full? :get :head)) ;  soemtimes works, sometimes not
+	    (declare (ignore content headers uri stream foo))
+	    (case resp
+	      (200 t)
+	      (405
+	       (if full?
+		   (values nil resp msg)
+		   (check-url url :full? t)))
+	      (t
+	       (values nil resp msg))))))
     (error (condition)
       (values nil (type-of condition) (princ-to-string condition)))
     ))

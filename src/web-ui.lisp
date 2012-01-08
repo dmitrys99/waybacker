@@ -104,10 +104,12 @@
 		(let ((*access-token* access-token))
 		  (process-blog xml)
 		  (send-done-email email title id))
+#| temp turn off (and in mt:in-background
 	      (error (condition)
 		(with-saving (s (blog-result-file id))
 		  (write `(error ,(type-of condition) ,(princ-to-string condition)) :stream s))
 		(write `(error ,(type-of condition) ,(princ-to-string condition)) :stream *debug-io*))
+|#
 	      ))))))))
 
 ;;; :::::::::::::::: Post email

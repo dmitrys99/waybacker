@@ -8,11 +8,11 @@
 	  (lxml::lxml-find-elements-with-tag lxml :|entry|))
 	 (blog-names
 	  (mapcar #'(lambda (e)
-		      (cadr (lxml::lxml-subelement e :|title|) ))
+		      (lxml-subelement-contents e :|title|) )
 		  blog-entries))
 	 (blog-ids
 	  (mapcar #'(lambda (e)
-		      (let ((raw (cadr (lxml::lxml-subelement e :|id|) )))
+		      (let ((raw (lxml-subelement-contents e :|id|) ))
 			(extract-blog-id raw)
 			))
 		  blog-entries)	  ))
@@ -53,9 +53,9 @@
 ;;; argument is parsed xml from initial query
 (defun process-blog (xml &key update?)
   (let* ((title (cadr (lxml-subelement xml :|title|))) 
-	 (id (extract-blog-id (cadr (lxml-subelement xml :|id|))))
-	 (per-page (parse-integer (cadr (lxml-subelement xml :|openSearch:itemsPerPage|))))
-	 (total (parse-integer (cadr (lxml-subelement xml :|openSearch:totalResults|))))
+	 (id (extract-blog-id (lxml-subelement-contents xml :|id|)))
+	 (per-page (parse-integer (lxml-subelement-contents xml :|openSearch:itemsPerPage|)))
+	 (total (parse-integer (lxml-subelement-contents xml :|openSearch:totalResults|)))
 	 (logfile (blog-result-file id)))
     (with-open-file (s logfile :direction :output :if-exists :supersede :if-does-not-exist :create)
       (write `(,title ,id) :stream s))
@@ -72,18 +72,25 @@
 	 (result (access-protected-resource-with-error url))
 	 (xml (parse-xml result)))
     (dolist (entry (lxml-find-elements-with-tag xml :|entry|))
-      (process-entry entry :logfile logfile :update? t))))
+      (process-entry entry :logfile logfile :update? nil))))
+
+(defun lxml-subelement-contents (xml tag)
+  (let ((elt (lxml-subelement xml tag)))
+    (and (listp elt) (cadr elt))))
+
+(defparameter *blogger-excludes* '("http://www.blogger.com" "http://web.archive.org"))
+;;; http://photos1.blogger.com/blogger/5271/1454/1600/oilrigs.gif
 
 (defun process-entry (entry-xml &key update? logfile)
   (let* ((content-elt (lxml-subelement entry-xml :|content|))
-	 (id (let ((raw (cadr (lxml::lxml-subelement entry-xml :|id|) )))
+	 (id (let ((raw (lxml-subelement-contents entry-xml :|id|)))
 	       ;; "tag:blogger.com,1999:blog-15644559.post-8259843894206778183"
 	       (multiple-value-bind (match strings)
 		   (ppcre:scan-to-strings "post-(\\d+)" raw)
 		 (assert match)	;better
 		 (svref strings 0))))
 	 (content (cadr content-elt))
-	 (title (cadr (lxml-subelement entry-xml :|title|)))
+	 (title (lxml-subelement-contents entry-xml :|title|))
 	 (url (lxml-attribute (lxml-find-element-with-attribute entry-xml :|link| :|rel| "alternate")
 			      :|href|))
 	 (edit-url (lxml-attribute (lxml-find-element-with-attribute entry-xml :|link| :|rel| "edit")
@@ -97,7 +104,7 @@
 	  (mt:collecting
 	    (setq transforms
 		  (process-text content
-				:excludes '("http://www.blogger.com")
+				:excludes *blogger-excludes*
 				:reporter
 				#'(lambda (url status &optional sub error-string)
 				    (incf total)
@@ -153,5 +160,12 @@
   (let* ((res (coerce-to-string (access-protected-resource-with-error
 				 "https://www.google.com/m8/feeds/contacts/default/full"))) ;this gets all, not sure how to just get ours
 	 (xml (parse-xml res))
-	 (email (cadr (lxml-subelement xml :|id|))))
+	 (email (lxml-subelement-contents xml :|id|)))
     email))
+
+;;; Debugging
+(defun count-forms (file)
+  (with-open-file (s file)
+    (do ((count 0 (+ 1 count))
+	 (form (read s nil :eof) (read s nil :eof)))
+	((eq form :eof) count))))
