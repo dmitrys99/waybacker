@@ -80,6 +80,7 @@
 
 (defparameter *blogger-excludes* '("http://www.blogger.com" "http://web.archive.org"))
 ;;; http://photos1.blogger.com/blogger/5271/1454/1600/oilrigs.gif
+;;; nytimes.com (common and causes redirect loops)
 
 (defun process-entry (entry-xml &key update? logfile)
   (let* ((content-elt (lxml-subelement entry-xml :|content|))

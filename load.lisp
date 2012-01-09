@@ -1,12 +1,12 @@
-(defvar *wb-here* *load-pathname*)
+(in-package :cl-user)
 
-;;; need patched version of this, not in ql yet
+(defvar *wb-here* *load-pathname*)
+(load "~/quicklisp.setup.lisp")
 
 ;;; NOTE: this is patched from default version
-(load "~/repos/portableaserve/aserve/aserve.asd")	;need more uptodate version
-;(load "~/repos/aserve/load.cl")
+(load "/misc/repos/portableaserve/aserve/aserve.asd")	;need more uptodate version
+(load "/misc/repos/wuwei/wuwei.asd")	;need more uptodate version
 
-(load "~/repos/wuwei/wuwei.asd")	;need more uptodate version
 (load (merge-pathnames "wayback.asd" *wb-here*))
 
 (ql:quickload :waybacker)

@@ -1,8 +1,5 @@
 (in-package :cl-user)
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (load "~/repos/swframes/lib/lxml.lisp"))	; +++ temp loc
-
 (defpackage :waybacker
   (:nicknames :wb)
   (:use :cl :net.aserve

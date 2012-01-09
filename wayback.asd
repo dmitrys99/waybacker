@@ -13,10 +13,15 @@
     :licence "Lesser Lisp General Public License"
     :depends-on (#-:ALLEGRO :aserve
 			    :mtlisp :wuwei 
-			    :drakma :s-xml :cl-json :cl-smtp  :cl-ppcre)
+			    :drakma :s-xml :cl-json :cl-smtp  :cl-ppcre
+			    :cl-paypal	;hey why not
+			    )
     :serial t
     :components 
     ((:static-file "wayback.asd")
+     (:module :lib
+	      :components
+	      ((:file "lxml")))
      (:module :src
 	      :serial t
 	      :components

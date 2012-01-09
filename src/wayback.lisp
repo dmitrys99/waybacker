@@ -2,7 +2,7 @@
 
 (setq net.uri:*strict-parse* nil)	;slack!
 
-(defparameter *user-agent* "waybacker")
+(defparameter *user-agent* :firefox)	;pretend to be firefox -- just a string like "waybacker" results in some bad responses
 
 ;;; Returns list of URLs. Not sure if this works well for things with only very old archives...
 (defun waybacks (url)
@@ -13,7 +13,7 @@
 				(princ-to-string uri))
 			url))
 	 (dir-url (format nil "http://wayback.archive.org/web/*/~A" unfragged))
-	 (directory (drakma:http-request dir-url :user-agent *user-agent*)))
+	 (directory (drakma:http-request dir-url :user-agent :drakma))) ;for archive.org, let's be more honest.
     (flet ((refrag (url)
 	     (if frag?
 	       (format nil "~A#~A" url frag?)
@@ -58,7 +58,7 @@
 	    (declare (ignore content headers uri stream foo))
 	    (case resp
 	      (200 t)
-	      (405
+	      ((405 403)
 	       (if full?
 		   (values nil resp msg)
 		   (check-url url :full? t)))
