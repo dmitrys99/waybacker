@@ -1,7 +1,7 @@
 (in-package :cl-user)
 
 (defvar *wb-here* *load-pathname*)
-(load "~/quicklisp.setup.lisp")
+(load "~/quicklisp/setup.lisp")
 
 ;;; NOTE: this is patched from default version
 (load "/misc/repos/portableaserve/aserve/aserve.asd")	;need more uptodate version

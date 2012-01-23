@@ -5,6 +5,7 @@
 (defvar *virtual-host* nil)
 
 (publish :path "/sanity" 
+	 :content-type "text/html"
 	 :function #'(lambda (req ent)
 		       (with-http-response-and-body (req ent)
 			 (html
@@ -14,7 +15,6 @@
 ;;; :::::::::::::::: Home page
 
 (publish :path "/"
-;	 :host *virtual-host*
 	 :content-type "text/html"
 	 :function #'(lambda (req ent)
 		       (setq *req req)
@@ -26,7 +26,6 @@
 ;;; :::::::::::::::: Sign into google (redirects)
 
 (publish :path "/obtain"
-;	 :host *virtual-host*
 	 :content-type "text/html"
 	 :function #'(lambda (req ent)
 		       (let ((auth-uri (get-auth-code-uri)))
@@ -38,7 +37,7 @@
 ;;; :::::::::::::::: OAuth callback, gets and displays list of blogs
 
 (publish :path "/oauth2callback"
-;	 :host *virtual-host*
+	 :content-type "text/html"
 	 :function 'oauth2callback)
 
 (defun oauth2callback (req ent)
@@ -77,7 +76,7 @@
 ;;; :::::::::::::::: Process a blog (gets info and shows summary; actual processing happens in background)
 
 (publish :path "/process-blog"
-;	 :host *virtual-host*
+	 :content-type "text/html"
 	 :function 'process-blog-ui)
 
 (defun process-blog-ui (req ent)
@@ -114,8 +113,9 @@
 
 ;;; :::::::::::::::: Post email
 
-;;; for gmail, this has to be an application-specific password: https://accounts.google.com/IssuedAuthSubTokens
-;;; DO NOT check this into source control! It gives full access to a google account
+;;; DO NOT check these values into source control! It gives full access to a google account.
+;;; for gmail, if you have 2-factor authentication turned on, then this has to be
+;;;   an application-specific password: https://accounts.google.com/IssuedAuthSubTokens
 (defparameter *smtp-gmail-name* nil)
 (defparameter *smtp-gmail-password* nil) 
 
@@ -142,7 +142,6 @@
 ;;; :::::::::::::::: Display results
 
 (publish :path "/blog-results"
-;	 :host *virtual-host*
 	 :content-type "text/html"
 	 :function 'blog-results)
 
