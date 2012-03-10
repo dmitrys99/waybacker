@@ -28,7 +28,7 @@
 			   (:h2 (:princ "Welcome to LinkRefresher"))
 			   (:h3 "What this is")
 			   (:princ "Blogger Link Refresher is a tool for reinvigorating your old, stale blog posts by replacing dead links with working links to the original content as found on the <a href='http://archive.org'>Internet Archive</a>.") 
-			   :pg
+			   :p
 			   "Sign in via " :br
 			   ((:a :href "/obtain" )
 			    ((:div :style  "border:1px solid gray; margin: 4px; width:100px;height:40px")
