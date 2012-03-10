@@ -54,7 +54,7 @@
 		      ("redirect_uri" . ,*oauth2-callback*) ;+++ I THINK this is the same one as in the first step...
 		      ("grant_type" . "authorization_code"))))
     (multiple-value-bind (body status headers) ;...
-	(drakma:http-request endpoint *oauth-token-endpoint*
+	(drakma:http-request *oauth-token-endpoint*
 			     :method :post
 			     :parameters parameters)
       (let ((json-response
