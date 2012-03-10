@@ -26,11 +26,10 @@
 
 ;;; stored results
 
-(defvar *results-directory*
-  (merge-pathnames "results/" cl-user::*wb-here*))
+(defvar *results-directory* "./results/")
 
 (defun blog-result-file (blog-id)
-  (merge-pathnames (make-pathname :name  (mt:fast-string blog-id) :type "lisp")
+  (merge-pathnames (make-pathname :name (mt:fast-string blog-id) :type "lisp")
 		   *results-directory*))
 
 (defmacro with-saving ((s file) &body body)
