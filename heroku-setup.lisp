@@ -4,9 +4,9 @@
 
 ;;; +++ need fixed version of wuwei?
 
-(load (make-pathname :directory *build-dir* :defaults "wayback.asd"))
+(load (make-pathname :directory *build-dir* :defaults "waybacker.asd"))
 
-(ql:quickload :wayback)
+(ql:quickload :waybacker)
 
 ;;; Redefine / extend heroku-toplevel here if necessary.
 
