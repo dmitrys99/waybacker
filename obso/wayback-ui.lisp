@@ -26,11 +26,12 @@ Todo:
 (publish :path "/wayback-response"
 	 :function 'wayback-response)
 
+;;; Returns the transformed page, which is not that useful.  Needs a frame or something...
 (defun wayback-response (req ent)
   (with-http-response-and-body (req ent)
     (let ((url (request-query-value "url" req))
 	  (options nil))
-      (write-string (apply #'transform-text (net.aserve.client:do-http-request url :user-agent *user-agent*) options)
+      (write-string (apply #'transform-text (drakma:http-request url :user-agent *user-agent*) options)
 		    *html-stream*))))
 
 

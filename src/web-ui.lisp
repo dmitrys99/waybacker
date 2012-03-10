@@ -19,9 +19,20 @@
 	 :function #'(lambda (req ent)
 		       (setq *req req)
 		       (wu:with-http-response-and-body (req ent)
-			 (html (:h2 (:princ "welcome"))
-			       (:princ "Welcome to Blogger Link Refresher") :br
-			       ((:a :href "/obtain") "Sign in via Google")))))
+			 (html
+			   (:head
+			    ((:link :rel "stylesheet" :type "text/css" :href "/wupub/wuwei.css"))
+			    ((:script :type "text/javascript" :src "/wupub/prototype.js"))
+			    ((:script :type "text/javascript" :src "/wupub/wuwei.js"))
+			    )
+			   (:h2 (:princ "Welcome to LinkRefresher"))
+			   (:h3 "What this is")
+			   (:princ "Blogger Link Refresher is a tool for reinvigorating your old, stale blog posts by replacing dead links with working links to the original content as found on the <a href='http://archive.org'>Internet Archive</a>.") 
+			   :pg
+			   "Sign in via " :br
+			   ((:a :href "/obtain" )
+			    ((:div :style  "border:1px solid gray; margin: 4px; width:100px;height:40px")
+			     (:center ((:img :src "http://mathoverflow.net/Content/Img/openid/google.png" :alt "Google")))))))))
 
 ;;; :::::::::::::::: Sign into google (redirects)
 
@@ -63,12 +74,20 @@
 		      "Access: " (:princ-safe *access-token*) :br
 		      "Refresh: " (:princ-safe *refresh-token*) :br))
 		  (html 
-		    (:h2 (:princ "blogs gotten"))
+		    (:head
+			    ((:link :rel "stylesheet" :type "text/css" :href "/wupub/wuwei.css"))
+			    ((:script :type "text/javascript" :src "/wupub/prototype.js"))
+			    ((:script :type "text/javascript" :src "/wupub/wuwei.js"))
+			    )
+		    (:body
+		    (:h2 (:princ "Your blogs:"))
 		    (:ul
 		     (dolist (b blogs)
 		       (html
-			 (:li ((:a :href (process-blog-link b)) (:princ (car b)))))))))
-	      ))))))
+			 (:li ((:a :href (process-blog-link b)) (:princ (car b)))))))
+		    :p
+		    "Click a blog to start link refreshing on it" ))
+		  )))))))
 
 (defun process-blog-link (b)
   (format nil "/process-blog?id=~A" (cadr b)))
@@ -94,7 +113,7 @@
 	  (html
 	  (:princ (format nil "Working on ~A.  There are ~A posts." title total))
 	  :p
-	  (:princ (format nil "We'll send you an email at ~A when it's done, with a link to the results." email))
+	  (:princ (format nil "This can take awhile. We'll send an email to  <b>~A</b> when it's done, with a link to the results." email))
 	  ))
 	;; +++ this is probably going to require something more robust...
 	(let ((access-token *access-token*)) ;rigamarole to get session vars to bkgnd process (+++ might need other token eventually)
@@ -156,14 +175,14 @@
 	      (let* ((header (read s))
 		     (title (car header)))
 		(html
-		  (:head
+		   ((:link :rel "stylesheet" :type "text/css" :href "/wupub/wuwei.css"))		  (:head
 		   ((:link :rel "stylesheet" :type "text/css" :href "/wupub/wuwei.css"))
 		   ((:script :type "text/javascript" :src "/wupub/prototype.js"))
 		   ((:script :type "text/javascript" :src "/wupub/wuwei.js"))
 		   )
 		  :newline
 		  (:body
-		   (:h1 (format nil "Results for ~A" title))
+		   (:h1 (:princ (format nil "Results for ~A" title)))
 		   (do ((entry (read s) (read s nil :eof)))
 		       ((eq entry :eof))
 		     (render-entry entry))))))

@@ -2,6 +2,7 @@
 
 (setq net.uri:*strict-parse* nil)	;slack!
 
+;;; works with drakma, not so well with net.aserve.client, which should not be used...
 (defparameter *user-agent* :firefox)	;pretend to be firefox -- just a string like "waybacker" results in some bad responses
 
 ;;; Returns list of URLs. Not sure if this works well for things with only very old archives...
