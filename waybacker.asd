@@ -1,8 +1,5 @@
 (in-package :cl-user)
 
-; Load this file and then run
-; (asdf:operate 'asdf:load-op :waybacker)
-
 #+ALLEGRO
 (require :aserve)
 

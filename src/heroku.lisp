@@ -8,6 +8,8 @@
   (setq *oauth2-callback* (ccl:getenv "OAUTH_CALLBACK")) 
   )
 
+(trace net.aserve:publish-directory)
+
 (defun cl-user::initialize-application ()
   (wu:locate-public-directory "./wupub/")
   )
