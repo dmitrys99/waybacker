@@ -7,3 +7,7 @@
   (setq *oauth2-client-secret* (ccl:getenv "OAUTH_CLIENT_SECRET"))
   (setq *oauth2-callback* (ccl:getenv "OAUTH_CALLBACK")) 
   )
+
+(defun cl-user::initialize-application ()
+  (wu:locate-public-directory "./wupub/")
+  )
