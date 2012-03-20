@@ -65,9 +65,9 @@
 	      ;; we have access token, stash it in session var
 	      (setq *access-token* access-token
 		    *refresh-token* refresh-token)
-	      (let* ((result (coerce-to-string (access-protected-resource-with-error "http://www.blogger.com/feeds/default/blogs")))
-		     (blogs
-		      (blog-list-interpreter (parse-xml result))))
+	      (let ((result (coerce-to-string (access-protected-resource-with-error "http://www.blogger.com/feeds/default/blogs"))))
+		(multiple-value-bind (blogs author)
+		      (blog-list-interpreter (parse-xml result))
 		  (when wu::*developer-mode*
 		    (html
 		      (:h2 "Access tokens")
@@ -80,14 +80,14 @@
 			    ((:script :type "text/javascript" :src "/wupub/wuwei.js"))
 			    )
 		    (:body
-		    (:h2 (:princ "Your blogs:"))
+		    (:h2 (:princ (format nil "~A's blogs:" author)))
 		    (:ul
 		     (dolist (b blogs)
 		       (html
 			 (:li ((:a :href (process-blog-link b)) (:princ (car b)))))))
 		    :p
 		    "Click a blog to start link refreshing on it" ))
-		  )))))))
+		  ))))))))
 
 (defun process-blog-link (b)
   (format nil "/process-blog?id=~A" (cadr b)))

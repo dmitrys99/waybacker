@@ -3,6 +3,8 @@
 ;;; code for munging blogger specifically
 
 ;;; Doesn't deal with >page of blogs (who has that many?)
+;;; Values: a list of (blog id) pairs
+;;;         author name
 (defun blog-list-interpreter (lxml)
   (let* ((blog-entries
 	  (lxml::lxml-find-elements-with-tag lxml :|entry|))
@@ -15,8 +17,11 @@
 		      (let ((raw (lxml-subelement-contents e :|id|) ))
 			(extract-blog-id raw)
 			))
-		  blog-entries)	  ))
-    (mapcar #'list blog-names blog-ids)))
+		  blog-entries)	  )
+	 (author (cadr (car (lxml::lxml-find-elements-with-tag lxml :|author| :|name|))))
+	 )
+    (values (mapcar #'list blog-names blog-ids)
+	    author)))
 
 ;;; pull id out of tag:blogger.com,1999:user-02356162954308418556.blog-15644559
 (defun extract-blog-id (string)
