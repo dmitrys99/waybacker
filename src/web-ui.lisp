@@ -191,29 +191,24 @@
 	    ))))))
 
 (defun render-entry (entry)
-    (let* ((id (saved-entry-id entry))
-	   (sub-data (saved-entry-sub-data entry))
-	   (button-id (mt:string+ "b" id)))
-      (html
-	:newline
-	(:hr
-	 (:h4 ((:a :href (saved-entry-url entry)) (:princ-safe (saved-entry-title entry))))
-	 ((:form :method "POST" 
-		 :onsubmit (unless (zerop (saved-entry-sub-count entry))
-			     (remote-function
-			      (ajax-continuation ()
-				(with-session (wu::req wu::ent) ;+++ !
-				  (do-substitutions entry)
-				  (render-update
-				    (:replace button-id (:b "Done!"))
-				    )
-				  ))
-			      :form t
-			      :spinner button-id
-			      :complete ""))) ;disable button +++
-	  (:ul
-	   (dolist (sub-list sub-data)
-	     (destructuring-bind (url sub status prob) sub-list
+  (let* ((id (saved-entry-id entry))
+	 (sub-data (saved-entry-sub-data entry))
+	 (button-id (mt:string+ "b" id)))
+    (html
+      :newline
+      (:div
+       ((:a :href (saved-entry-url entry)) (:princ-safe (saved-entry-title entry)))
+       "&nbsp;&nbsp;"
+       (:princ (format nil "~A total links, ~A still valid, ~A substitutions, ~A failures"
+		       (saved-entry-total-count entry)
+		       (saved-entry-good-count entry)
+		       (saved-entry-sub-count entry)
+		       (saved-entry-fail-count entry)))
+       :br
+       (:div
+	(:ul
+	 (dolist (sub-list sub-data)
+	   (destructuring-bind (url sub status prob) sub-list
 	     (html (:li ((:a href url) (:princ-safe url))
 			(when (or status prob)
 			  (html :br
@@ -222,17 +217,24 @@
 			  (html :br
 				"Refresh to: "
 				((:a href sub) (:princ-safe sub))))
-			)))))
-
-	  (:br (:princ (format nil "~A total links, ~A still valid, ~A substitutions, ~A failures"
-			       (saved-entry-total-count entry)
-			       (saved-entry-good-count entry)
-			       (saved-entry-sub-count entry)
-			       (saved-entry-fail-count entry))))
-	  
-	  (unless (zerop (saved-entry-sub-count entry))
+			))))))
+       (unless (zerop (saved-entry-sub-count entry))
+	 (html 
+	   ((:form :method "POST" 
+		   :onsubmit (unless (zerop (saved-entry-sub-count entry))
+			       (remote-function
+				(ajax-continuation ()
+				  (with-session (wu::req wu::ent) ;+++ !
+				    (do-substitutions entry)
+				    (render-update
+				      (:replace button-id (:b "Done!"))
+				      )
+				    ))
+				:form t
+				:spinner button-id
+				:complete ""))) ;disable button +++
 	    (html :br ((:input :type "submit" :value "Repair" :id button-id))))
-	  )))))
+	   ))))))
 
 (defun do-substitutions (entry)
   (let* ((entry-xml (saved-entry-xml entry))
