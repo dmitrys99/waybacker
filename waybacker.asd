@@ -9,7 +9,7 @@
     :description "Use Wayback Machine at archive.org to update web pages and blogs"
     :licence "Lesser Lisp General Public License"
     :depends-on (#-:ALLEGRO :aserve
-			    :mtlisp :wuwei 
+			    :mtlisp :wuwei :clsql
 			    :drakma :s-xml :cl-json :cl-smtp  :cl-ppcre
 			    :cl-paypal	;hey why not
 			    )
