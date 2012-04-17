@@ -6,7 +6,5 @@
   (setq *oauth2-client-id* (ccl:getenv "OAUTH_CLIENT_ID"))
   (setq *oauth2-client-secret* (ccl:getenv "OAUTH_CLIENT_SECRET"))
   (setq *oauth2-callback* (ccl:getenv "OAUTH_CALLBACK")) 
-  (wu:locate-public-directory "./wupub/")
-;;; This allows developer mode to be
-  (setf wu:*developer-mode* (equal (ccl:getenv "DEVELOPER_MODE") "Y"))
+  (wu:wuwei-initialize-application)
   )
