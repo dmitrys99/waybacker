@@ -29,5 +29,6 @@
 	       (:file "oauth2-google")
 	       (:file "blogger")
 	       (:file "web-ui")
+	       (:file "zs3")		
 	       (:file "heroku")
 	       ))))
