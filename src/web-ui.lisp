@@ -170,7 +170,7 @@
     (with-http-response-and-body (req ent)
       (with-html-error-handling 
       (let ((id (net.aserve:request-query-value "id" req)))
-	(if (probe-file (blog-result-file id))
+	(if (probe-results-file? id)
 	    (with-open-file (s (blog-result-file id))
 	      (let* ((header (read s))
 		     (title (car header)))

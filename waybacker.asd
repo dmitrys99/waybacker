@@ -11,6 +11,7 @@
     :depends-on (#-:ALLEGRO :aserve
 			    :mtlisp :wuwei :clsql
 			    :drakma :s-xml :cl-json :cl-smtp  :cl-ppcre
+			    :zs3	;heroku only
 			    :cl-paypal	;hey why not
 			    )
     :serial t

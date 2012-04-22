@@ -1,16 +1,24 @@
 (in-package :cl-user)
 
-(defvar *wb-here* *load-pathname*)
+;;; Local load
 (load "~/quicklisp/setup.lisp")
 
-;;; NOTE: this is patched from default version
-(load "/misc/repos/portableaserve/aserve/aserve.asd")	;need more uptodate version
-(load "/misc/repos/wuwei/wuwei.asd")	;need more uptodate version
+(defvar *build-dir* (pathname-directory (truename *load-pathname*)))
 
-(load (merge-pathnames "wayback.asd" *wb-here*))
+;;; Load local copies of portableaserve and wuwei, since quicklisp's are broken
+;;; (You can get these from github.com/mtravers.  Put them the repos directory).
+(let* ((asds (directory (make-pathname :directory  (append *build-dir* '( "repos" :wild-inferiors))
+				       :name :wild
+				       :type "asd")))
+       (directories (remove-duplicates (mapcar #'pathname-directory asds) :test #'equal)))
+  (dolist (d directories)
+    (push (make-pathname :directory d) asdf:*central-registry*)))
 
-(ql:quickload :waybacker)
+(load (make-pathname :directory *build-dir* :defaults "heroku-setup.lisp"))
 
-(load (make-pathname :defaults *wb-here* :name "secrets"))
-(net.aserve:start :port 8080)
+(load (make-pathname :directory *build-dir* :defaults "secrets"))
+
+(initialize-application)
+
+(net.aserve:start :port 1666)
 (in-package :wb)

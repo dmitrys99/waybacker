@@ -31,15 +31,48 @@
 
 ;;; stored results
 
+(defun blog-result-file (blog-id)
+  (merge-pathnames (make-pathname :name (mt:fast-string blog-id) :type "lisp")
+		   *results-directory*))
+
+#|
+;;; File version
 (defvar *results-directory* "./results/")
+
+(defmacro with-saving ((s file) &body body)
+
+     ,@body))
+
+(defun probe-results-file? (blog-id)
+  (let ((file (merge-pathnames (make-pathname :name (mt:fast-string blog-id) :type "lisp")
+			       *results-directory*)))
+    (probe-file file)))
+
+|#
 
 (defun blog-result-file (blog-id)
   (merge-pathnames (make-pathname :name (mt:fast-string blog-id) :type "lisp")
 		   *results-directory*))
 
-(defmacro with-saving ((s file) &body body)
-  `(with-open-file (,s ,file :direction :output :if-exists :append :if-does-not-exist :create)
-     ,@body))
+;;; S3 Version
+(defvar *results-directory* "/tmp/")
+
+(defun store-blog-result-file (blog-id)
+  (zs3:put-file (blog-result-file blog-id)
+		"waybacker"
+		(blog-result-key blog-id)))
+
+(defun blog-result-key (id)
+  (mt:string+ "result/" id))
+
+(defun probe-results-file? (blog-id)
+  (let ((file (merge-pathnames (make-pathname :name (mt:fast-string blog-id) :type "lisp")
+			       *results-directory*)))
+    (or (probe-file file)
+	;; +++ don't like ignore errors, but there is no API call to probe file!
+	(mt:report-and-ignore-errors (zs3:get-file "waybacker" (blog-result-key id) file)))))
+
+;;; End S3 specific
 
 (defstruct saved-entry
   id
@@ -69,6 +102,7 @@
     (dotimes (page (ceiling total per-page))
       (unless (zerop page)
 	(process-blogger-page id page per-page :logfile logfile)))
+    (store-blog-result-file id)
     ))
 
 (defun process-blogger-page (id page page-size &key logfile)
@@ -131,7 +165,7 @@
 	   :good-count good
 	   :sub-count subs
 	   :fail-count fails)))
-    (with-saving (s logfile)
+    (with-open-file (s logfile :direction :output :if-exists :append :if-does-not-exist :create)
       (terpri s)
       (write
        entry
