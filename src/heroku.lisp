@@ -6,5 +6,6 @@
   (setq *oauth2-client-id* (ccl:getenv "OAUTH_CLIENT_ID"))
   (setq *oauth2-client-secret* (ccl:getenv "OAUTH_CLIENT_SECRET"))
   (setq *oauth2-callback* (ccl:getenv "OAUTH_CALLBACK")) 
+  (heroku-zs3-init)
   (wu:wuwei-initialize-application)
   )

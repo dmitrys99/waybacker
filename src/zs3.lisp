@@ -1,6 +1,13 @@
 (in-package :wb)
 
-(setq zs3:*credentials* (zs3:file-credentials "amazon-credentials"))
+(defun local-zs3-setup ()
+  (setq zs3:*credentials* 
+	(zs3:file-credentials "amazon-credentials")))
+
+(defun heroku-zs3-init ()
+  (setq zs3:*credentials* 
+	(list (ccl:getenv "AMAZON_ACCESS_KEY_ID")
+	      (ccl:getenv "AMAZON_SECRET_ACCESS_KEY"))))
 
 (defun setup ()
   (zs3:create-bucket "waybacker"))
